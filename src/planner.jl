@@ -1,6 +1,8 @@
 using LinearAlgebra
 
-mutable struct PlannerHyperparameters{T}
+abstract type Parameters end
+
+mutable struct PlannerHyperparameters{T} <: Parameters
     dyn::Dynamics
     time_horizon::Int64
     Q::Array{T}
@@ -14,17 +16,17 @@ mutable struct PlannerHyperparameters{T}
     inconvenience_ratio::T
 end
 
-function PlannerHyperparameters(dyn;time_horizon=20, markup=1.0, collision_slack=1000., trust_region_weight=10., inconvenience_weights=[1. 1. 1.], collision_radius=0.25, inconvenience_ratio=0.1)
+function PlannerHyperparameters(dyn::Dynamics, time_horizon=20, markup=1.0, collision_slack=1000., trust_region_weight=10., inconvenience_weights=[1. 1. 1.], collision_radius=0.25, inconvenience_ratio=0.1)
     n = dyn.state_dim
     m = dyn.ctrl_dim
 
     Q = Matrix{Float64}(I, n, n)
     Qt = Matrix{Float64}(I, n, n)
     R = Matrix{Float64}(I, m, m)
-    PlannerHyperparameters(dyn, time_horizon, Q, R, Qt, markup, collision_slack, trust_region_weight, inconvenience_weights, collision_radius, inconvenience_ratio)
+    return PlannerHyperparameters(dyn, time_horizon, Q, R, Qt, markup, collision_slack, trust_region_weight, inconvenience_weights, collision_radius, inconvenience_ratio)
 end
 
-mutable struct PlannerOptimizerParams{T}
+mutable struct PlannerOptimizerParams{T} <: Parameters
     As::Vector{Matrix{T}}   # linearized A matrix for dynamics
     Bs::Vector{Matrix{T}}   # linearized B matrix for dynamics
     Cs::Vector{Vector{T}}   # linearized C matrix for dynamics
@@ -57,9 +59,27 @@ function InitializePlannerOptimizerParams(dyn::Dynamics, hp::PlannerHyperparamet
     return PlannerOptimizerParams(As, Bs, Cs, Gs, Hs, inconvenience_budget, initial_state, goal_state, previous_states, previous_controls)
 end
 
-# function update_planner_params!(planner_params, prev_state, prev_control, initial_state, goal_state)
-#     ideal_traj = ....
-#     ...
+# function update_planner_params!(Plan, prev_state, prev_control, initial_state, goal_state)
+#     ideal_traj = ...
+# end
+
+# function initialize_solver(dyn::dynamics)
+#     if flag == "ecos"
+#         qp_model = Model(ECOS.Optimizer)
+#     else
+#         qp_model = Model(() -> Gurobi.Optimizer(GRB_ENV))
+#     end
+
+#     @variable(qp_model, x[1:dyn.state_dim, 1:time + 1])
+#     @variable(qp_model, u[1:dyn.ctrl_dim, 1:time])
+#     @variable(qp_model, slack[1:time])
+
+#     @objective(
+#         qp_model,
+#         Min,
+#         sum(x[:, n]' * Q * x[:, n] for n in 1:N) + sum(u[:, n]' * R * u[:, n] * markup^n for n in 1:N) + (x[:, N + 1] - statef)' * P * (x[:, N + 1] - statef) + sum(slack[n] * slack_weight for n in 1:N)
+#     )
+
 # end
 
 
