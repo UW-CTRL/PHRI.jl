@@ -64,6 +64,14 @@ end
 #     ideal_traj = ...
 # end
 
+mutable struct ModelInitialization
+    model::Model
+    x::Array{VariableRef, 2}
+    u::Array{VariableRef, 2}
+    slack::Array{VariableRef, 1}
+end
+
+
 function initialize_solver(dyn::Dynamics, hp::Parameters, op::Parameters)
     local markup = hp.markup
     local slack_weight = hp.collision_slack
@@ -92,8 +100,8 @@ function initialize_solver(dyn::Dynamics, hp::Parameters, op::Parameters)
         Min,
         sum(x[:, n]' * Q * x[:, n] for n in 1:N) + sum(u[:, n]' * R * u[:, n] * markup^n for n in 1:N) + (x[:, N + 1] - statef)' * Qt * (x[:, N + 1] - statef) + sum(slack[n] * slack_weight for n in 1:N)
     )   
-    
-    return model
+
+    return ModelInitialization(model, x, u, slack)
 end
 
 

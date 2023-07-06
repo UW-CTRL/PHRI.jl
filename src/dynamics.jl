@@ -42,6 +42,13 @@ function linearized_dynamics(dyn::SingleIntegrator2D, state::VecOrMat{T}, contro
     A, B, C
 end
 
+function add_constraints!(dyn::SingleIntegrator2D, hp::Parameters, model::ModelInitialization)
+    for n in 1:hp.time_horizon
+        @constraint(model.model, dyn.control_lim[2] <= model.u[1, n] <= dyn.control_lim[1]) 
+        @constraint(model.model, dyn.control_lim[2] <= model.u[2, n] <= dyn.control_lim[1])
+    end
+end
+
 
 struct DoubleIntegrator2D{T} <: Dynamics where {T}
     dt::T
