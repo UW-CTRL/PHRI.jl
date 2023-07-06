@@ -1,4 +1,5 @@
 using LinearAlgebra
+using JuMP, HiGHS
 
 abstract type Parameters end
 
@@ -59,33 +60,40 @@ function InitializePlannerOptimizerParams(dyn::Dynamics, hp::PlannerHyperparamet
     return PlannerOptimizerParams(As, Bs, Cs, Gs, Hs, inconvenience_budget, initial_state, goal_state, previous_states, previous_controls)
 end
 
-function update_planner_params!(Plan, prev_state, prev_control, initial_state, goal_state)
-    ideal_traj = ...
-end
+# function update_planner_params!(Plan, prev_state, prev_control, initial_state, goal_state)
+#     ideal_traj = ...
+# end
 
-function initialize_solver(dyn::dynamics, params::Parameters)
-    local markup = params.markup
-    local slack_weight = params.collision_slack
-    local Q = params.Q
-    local Qt = params.Qt
-    local R = params.R
+function initialize_solver(dyn::Dynamics, hp::Parameters, op::Parameters)
+    local markup = hp.markup
+    local slack_weight = hp.collision_slack
+    local Q = hp.Q
+    local Qt = hp.Qt
+    local R = hp.R
+    local N = hp.time_horizon
+    local statef = op.goal_state
+
+    flag = "highs"
 
     if flag == "ecos"
-        qp_model = Model(ECOS.Optimizer)
+        model = Model(ECOS.Optimizer)
+    elseif flag == "highs"
+        model = Model(HiGHS.Optimizer)
     else
-        qp_model = Model(() -> Gurobi.Optimizer(GRB_ENV))
+        model = Model(() -> Gurobi.Optimizer(GRB_ENV))
     end
 
-    @variable(qp_model, x[1:dyn.state_dim, 1:params.time_horizon + 1])      # initialize state variable for qp_model
-    @variable(qp_model, u[1:dyn.ctrl_dim, 1:params.time_horizon])           # initialize control variable for qp_model
-    @variable(qp_model, slack[1:params.time_horizon])                       # initialize slack variable for qp_model
+    @variable(model, x[1:dyn.state_dim, 1:N + 1])      # initialize state variable for qp_model
+    @variable(model, u[1:dyn.ctrl_dim, 1:N])           # initialize control variable for qp_model
+    @variable(model, slack[1:N])                       # initialize slack variable for qp_model
 
     @objective(
-        qp_model,
+        model,
         Min,
         sum(x[:, n]' * Q * x[:, n] for n in 1:N) + sum(u[:, n]' * R * u[:, n] * markup^n for n in 1:N) + (x[:, N + 1] - statef)' * Qt * (x[:, N + 1] - statef) + sum(slack[n] * slack_weight for n in 1:N)
     )   
-    # initialize the cost and objective for qp_model for the qp_model
+    
+    return model
 end
 
 
