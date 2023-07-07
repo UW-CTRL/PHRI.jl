@@ -2,13 +2,14 @@ using LinearAlgebra
 using EllipsisNotation
 using ForwardDiff
 
-abstract type Dynamics end
-
 struct SingleIntegrator2D{T} <: Dynamics where {T}
     dt::T
     state_dim::Int64
     ctrl_dim::Int64
-    control_lim::VecOrMat{T}
+    max_v::T
+    min_v::T
+    control_min::VecOrMat{T}
+    control_max::VecOrMat{T}
 end
 
 function step(dyn::SingleIntegrator2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T}
@@ -42,19 +43,22 @@ function linearized_dynamics(dyn::SingleIntegrator2D, state::VecOrMat{T}, contro
     A, B, C
 end
 
-function add_constraints!(dyn::SingleIntegrator2D, hp::Parameters, model::ModelInitialization)
-    for n in 1:hp.time_horizon
-        @constraint(model.model, dyn.control_lim[2] <= model.u[1, n] <= dyn.control_lim[1]) 
-        @constraint(model.model, dyn.control_lim[2] <= model.u[2, n] <= dyn.control_lim[1])
-    end
-end
+# function add_constraints!(dyn::SingleIntegrator2D, hp::Parameters, model::ModelInitialization)
+#     for n in 1:hp.time_horizon
+#         @constraint(model.model, dyn.control_lim[2] <= model.u[1, n] <= dyn.control_lim[1]) 
+#         @constraint(model.model, dyn.control_lim[2] <= model.u[2, n] <= dyn.control_lim[1])
+#     end
+# end
 
 
 struct DoubleIntegrator2D{T} <: Dynamics where {T}
     dt::T
     state_dim::Int64
     ctrl_dim::Int64
-    control_lim::VecOrMat{T}
+    max_v::T
+    min_v::T
+    control_min::VecOrMat{T}
+    control_max::VecOrMat{T}
 end
 
 function step(dyn::DoubleIntegrator2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T}
@@ -87,15 +91,55 @@ function linearized_dynamics(dyn::DoubleIntegrator2D, state::VecOrMat{T}, contro
     A, B, C
 end
 
+# TODO add polarized single integrator
+
+struct SingleIntegratorPolar{T} <: Dynamics where {T}
+    dt::T
+    state_dim::Int64
+    ctrl_dim::Int64
+    max_v::T
+    min_v::T
+    control_min::VecOrMat{T}
+    control_max::VecOrMat{T}
+end
+
+function step(dyn::SingleIntegratorPolar, state, control)
+    dt = dyn.dt
+    x, y = state
+    θ, v = control
+    dx = v * cos(θ) * dt
+    dy = v * cos(θ) * dt
+    state + [dx, dy]
+end
+
+get_position(dyn::SingleIntegratorPolar, state::VecOrMath{T}) where {T} = state[.., 1:2]
+get_velocity(dyn::SingleIntegratorPolar, state::VecOrMat{T}) where {T} = control[.., end:end]
+
+function initial_straight_trajectory(dyn::SingleIntegratorPolar, start_position::VecOrMat{T}, end_position::VecOrMat{T}, initial_speed::T, T_horizon::Int64) where {T}
+    x0, y0 = start_position
+    xg, yg = end_position
+    initial_heading = atan(yg - y0, xg - x0)
+    initial_state = [x0, y0]
+    states = Array{Float64}(undef, T_horizon + 1, dyn.state_dim)
+    states[1,:] = initial_state
+    controls = ones(Float64, T_horizon, dyn.ctrl_dim) * diagm([initial_heading, initial_speed])
+    for t = 1:T_horizon
+        states[t+1,:] = step(dyn, states[t,:], controls[t,:])
+    end
+    states, controls
+
 struct UnicycleDynamics{T} <: Dynamics where {T}
     dt::T
     state_dim::Int64
     ctrl_dim::Int64
-    control_lim::Vector{T}
+    max_v::T
+    min_v::T
+    control_min::VecOrMat{T}
+    control_max::VecOrMat{T}
 end
 
 function step(dyn::UnicycleDynamics, state, control)
-    dt = 0.1
+    dt = dyn.dt
     x, y, theta, = state
     w, v = control
     eps = 1E-2
@@ -133,11 +177,14 @@ struct DynamicallyExtendedUnicycleDynamics{T} <: Dynamics where {T}
     dt::T
     state_dim::Int64
     ctrl_dim::Int64
-    control_lim::VecOrMat{T}
+    max_v::T
+    min_v::T
+    control_min::VecOrMat{T}
+    control_max::VecOrMat{T}
 end
 
 function step(dyn::DynamicallyExtendedUnicycleDynamics, state, control)
-    dt = 0.1
+    dt = dyn.dt
     x, y, theta, v = state
     w, a = control
     eps = 1E-2
