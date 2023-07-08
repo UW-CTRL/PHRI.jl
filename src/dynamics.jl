@@ -93,7 +93,7 @@ end
 
 # TODO add polarized single integrator
 
-struct SingleIntegratorPolar{T} <: Dynamics where {T}
+struct SingleIntegratorPolar2D{T} <: Dynamics where {T}
     dt::T
     state_dim::Int64
     ctrl_dim::Int64
@@ -103,7 +103,7 @@ struct SingleIntegratorPolar{T} <: Dynamics where {T}
     control_max::VecOrMat{T}
 end
 
-function step(dyn::SingleIntegratorPolar, state, control)
+function step(dyn::SingleIntegratorPolar2D, state, control)
     dt = dyn.dt
     x, y = state
     θ, v = control
@@ -112,10 +112,10 @@ function step(dyn::SingleIntegratorPolar, state, control)
     state + [dx, dy]
 end
 
-get_position(dyn::SingleIntegratorPolar, state::VecOrMath{T}) where {T} = state[.., 1:2]
-get_velocity(dyn::SingleIntegratorPolar, state::VecOrMat{T}) where {T} = control[.., end:end]
+get_position(dyn::SingleIntegratorPolar2D, state::VecOrMath{T}) where {T} = state[.., 1:2]
+get_velocity(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}) where {T} = control[.., end:end]
 
-function initial_straight_trajectory(dyn::SingleIntegratorPolar, start_position::VecOrMat{T}, end_position::VecOrMat{T}, initial_speed::T, T_horizon::Int64) where {T}
+function initial_straight_trajectory(dyn::SingleIntegratorPolar2D, start_position::VecOrMat{T}, end_position::VecOrMat{T}, initial_speed::T, T_horizon::Int64) where {T}
     x0, y0 = start_position
     xg, yg = end_position
     initial_heading = atan(yg - y0, xg - x0)
@@ -127,6 +127,14 @@ function initial_straight_trajectory(dyn::SingleIntegratorPolar, start_position:
         states[t+1,:] = step(dyn, states[t,:], controls[t,:])
     end
     states, controls
+end
+
+function linearized_dynamics(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T}
+    A = ForwardDiff.jacobian(state -> step(dyn, state, control), state)
+    B = ForwardDiff.jacobian(control -> step(dyn, state, control), control)
+    C = step(dyn, state, control) - A * state - B * control
+    A, B, C
+end
 
 struct UnicycleDynamics{T} <: Dynamics where {T}
     dt::T
