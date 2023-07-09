@@ -37,12 +37,12 @@ function collision_avoidance_constraint(radius::T, ego_position::VecOrMat, other
     sum((ego_position - other_position).^2) - radius^2
 end
 
-function linearize_collision_avoidance(ego_dyn::Dynamics, ego_state::VecOrMat, other_dyn::Dynamics, other_state::VecOrMat) where {T}
+function linearize_collision_avoidance(ego_dyn::Dynamics, ego_state::VecOrMat, other_dyn::Dynamics, other_state::VecOrMat)
     ego_position = get_position(ego_dyn, ego_state)
     other_position = get_position(other_dyn, other_state)
     2 * (ego_position - other_position)
 end 
 
-function linearize_collision_avoidance(ego_position::VecOrMat, other_position::VecOrMat) where {T}
+function linearize_collision_avoidance(ego_position::VecOrMat, other_position::VecOrMat)
     2 * (ego_position - other_position)
 end 
