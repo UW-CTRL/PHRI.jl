@@ -1,27 +1,38 @@
 using LinearAlgebra
 using EllipsisNotation
 using ForwardDiff
+using Parameters
 
-struct SingleIntegrator2D{T} <: Dynamics where {T}
+abstract type Dynamics end
+abstract type IntegratorDynamics <: Dynamics end
+abstract type UnicycleDynamics <: Dynamics end
+
+get_speed(dyn::Dynamics, state::Vector{T}, control::Vector{T}) where {T} = norm.(eachrow(get_velocity(dyn, state, control)))
+
+@with_kw struct SingleIntegrator2D{T} <: IntegratorDynamics where {T}
     dt::T
-    state_dim::Int64
-    ctrl_dim::Int64
-    max_v::T
-    min_v::T
-    control_min::VecOrMat{T}
-    control_max::VecOrMat{T}
+    state_dim::Int64 = 2    # [x, y]
+    ctrl_dim::Int64 = 2     # [ẋ, ẏ]   
+    velocity_min::T = 0.
+    velocity_max::T
+    control_min::Vector{T}
+    control_max::Vector{T}
 end
 
-function step(dyn::SingleIntegrator2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T}
+# assuming control_lims are symmetric
+SingleIntegrator2D(dt::T, velocity_max::T, control_lim::Vector{T}) where {T} = SingleIntegrator2D(dt=dt, velocity_max=velocity_max, control_min=-control_lim, control_max=control_lim)
+
+
+function step(dyn::SingleIntegrator2D, state::Vector{T}, control::Vector{T}) where {T}
     A = [1. 0. ; 0. 1.]
     B = [dyn.dt 0.; 0 dyn.dt]
     A * state + B * control 
 end
 
 get_position(dyn::SingleIntegrator2D, state::VecOrMat{T}) where {T} = state
-get_velocity(dyn::SingleIntegrator2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T} = control
+get_velocity(dyn::SingleIntegrator2D, state::VecOrMat{T}, control::Vector{T}) where {T} = control
 
-function initial_straight_trajectory(dyn::SingleIntegrator2D, start_position::VecOrMat{T}, end_position::VecOrMat{T}, initial_speed::T, T_horizon::Int64) where {T}
+function initial_straight_trajectory(dyn::SingleIntegrator2D, start_position::Vector{T}, end_position::Vector{T}, initial_speed::T, T_horizon::Int64) where {T}
     x0, y0 = start_position
     xg, yg = end_position
     initial_heading = atan(yg - y0, xg - x0)
@@ -36,40 +47,35 @@ function initial_straight_trajectory(dyn::SingleIntegrator2D, start_position::Ve
     states, controls
 end
 
-function linearized_dynamics(dyn::SingleIntegrator2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T}
+function linearized_dynamics(dyn::SingleIntegrator2D, state::Vector{T}, control::Vector{T}) where {T}
     A = [1. 0. ; 0. 1.]
     B = [dyn.dt 0.; 0 dyn.dt]
     C = zeros(Float64, dyn.state_dim)
     A, B, C
 end
 
-# function add_constraints!(dyn::SingleIntegrator2D, hp::Parameters, model::ModelInitialization)
-#     for n in 1:hp.time_horizon
-#         @constraint(model.model, dyn.control_lim[2] <= model.u[1, n] <= dyn.control_lim[1]) 
-#         @constraint(model.model, dyn.control_lim[2] <= model.u[2, n] <= dyn.control_lim[1])
-#     end
-# end
-
-
-struct DoubleIntegrator2D{T} <: Dynamics where {T}
+@with_kw struct DoubleIntegrator2D{T} <: Dynamics where {T}
     dt::T
-    state_dim::Int64
-    ctrl_dim::Int64
-    max_v::T
-    min_v::T
-    control_min::VecOrMat{T}
-    control_max::VecOrMat{T}
+    state_dim::Int64 = 4    # [x, y, ẋ, ẏ]
+    ctrl_dim::Int64 = 2     # [ẍ, ÿ]
+    velocity_min::T = 0.
+    velocity_max::T
+    control_min::Vector{T}
+    control_max::Vector{T}
 end
 
-function step(dyn::DoubleIntegrator2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T}
+# assuming control_lims are symmetric
+DoubleIntegrator2D(dt::T, velocity_max::T, control_lim::Vector{T}) where {T} = DoubleIntegrator2D(dt=dt, velocity_max=velocity_max, control_min=-control_lim, control_max=control_lim)
+
+function step(dyn::DoubleIntegrator2D, state::Vector{T}, control::Vector{T}) where {T}
     A = [1. 0. dyn.dt 0.; 0. 1. 0. dyn.dt; 0. 0. 1. 0.; 0. 0. 0. 1.]
     B = [0.5 * dyn.dt^2 0.; 0. 0.5 * dyn.dt^2; dyn.dt 0.; 0. dyn.dt]
     A * state + B * control 
 end
 get_position(dyn::DoubleIntegrator2D, state::VecOrMat{T}) where {T} = state[..,1:2]
-get_velocity(dyn::DoubleIntegrator2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T} = state[..,end-1:end]
+get_velocity(dyn::DoubleIntegrator2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T} = state[..,3:4]
 
-function initial_straight_trajectory(dyn::DoubleIntegrator2D, start_position::VecOrMat{T}, end_position::VecOrMat{T}, initial_speed::T, T_horizon::Int64) where {T}
+function initial_straight_trajectory(dyn::DoubleIntegrator2D, start_position::Vector{T}, end_position::Vector{T}, initial_speed::T, T_horizon::Int64) where {T}
     x0, y0 = start_position
     xg, yg = end_position
     initial_heading = atan(yg - y0, xg - x0)
@@ -84,38 +90,39 @@ function initial_straight_trajectory(dyn::DoubleIntegrator2D, start_position::Ve
     states, controls
 end
 
-function linearized_dynamics(dyn::DoubleIntegrator2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T}
+function linearized_dynamics(dyn::DoubleIntegrator2D, state::Vector{T}, control::Vector{T}) where {T}
     A = [1. 0. dyn.dt 0.; 0. 1. 0. dyn.dt; 0. 0. 1. 0.; 0. 0. 0. 1.]
     B = [0.5 * dyn.dt^2 0.; 0. 0.5 * dyn.dt^2; dyn.dt 0.; 0. dyn.dt]
     C = zeros(Float64, dyn.state_dim)
     A, B, C
 end
 
-# TODO add polarized single integrator
-
-struct SingleIntegratorPolar2D{T} <: Dynamics where {T}
+@with_kw struct SingleIntegratorPolar2D{T} <: Dynamics where {T}
     dt::T
-    state_dim::Int64
-    ctrl_dim::Int64
-    max_v::T
-    min_v::T
-    control_min::VecOrMat{T}
-    control_max::VecOrMat{T}
+    state_dim::Int64 = 2    # [x, y]
+    ctrl_dim::Int64 = 2     # [θ, v]
+    velocity_min::T = 0.
+    velocity_max::T
+    control_min::Vector{T}
+    control_max::Vector{T}
 end
+
+# assuming control_lims are symmetric
+SingleIntegratorPolar2D(dt::T, velocity_max::T, control_lim::Vector{T}) where {T} = SingleIntegratorPolar2D(dt=dt, velocity_max=velocity_max, control_min=-control_lim, control_max=control_lim)
+
 
 function step(dyn::SingleIntegratorPolar2D, state, control)
     dt = dyn.dt
-    x, y = state
     θ, v = control
     dx = v * cos(θ) * dt
-    dy = v * cos(θ) * dt
-    state + [dx, dy]
+    dy = v * sin(θ) * dt
+    state + [dx; dy]
 end
 
-get_position(dyn::SingleIntegratorPolar2D, state::VecOrMath{T}) where {T} = state[.., 1:2]
-get_velocity(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}) where {T} = control[.., end:end]
+get_position(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}) where {T} = state[..,1:2]
+get_velocity(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T} = control[end] .* [cos.(control[1]) sin.(control[1])]
 
-function initial_straight_trajectory(dyn::SingleIntegratorPolar2D, start_position::VecOrMat{T}, end_position::VecOrMat{T}, initial_speed::T, T_horizon::Int64) where {T}
+function initial_straight_trajectory(dyn::SingleIntegratorPolar2D, start_position::Vector{T}, end_position::Vector{T}, initial_speed::T, T_horizon::Int64) where {T}
     x0, y0 = start_position
     xg, yg = end_position
     initial_heading = atan(yg - y0, xg - x0)
@@ -129,26 +136,30 @@ function initial_straight_trajectory(dyn::SingleIntegratorPolar2D, start_positio
     states, controls
 end
 
-function linearized_dynamics(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T}
+function linearized_dynamics(dyn::SingleIntegratorPolar2D, state::Vector{T}, control::Vector{T}) where {T}
     A = ForwardDiff.jacobian(state -> step(dyn, state, control), state)
     B = ForwardDiff.jacobian(control -> step(dyn, state, control), control)
     C = step(dyn, state, control) - A * state - B * control
     A, B, C
 end
 
-struct UnicycleDynamics{T} <: Dynamics where {T}
+@with_kw struct Unicycle{T} <: Dynamics where {T}
     dt::T
-    state_dim::Int64
-    ctrl_dim::Int64
-    max_v::T
-    min_v::T
-    control_min::VecOrMat{T}
-    control_max::VecOrMat{T}
+    state_dim::Int64 = 3
+    ctrl_dim::Int64 = 2
+    velocity_min::T = 0.
+    velocity_max::T
+    control_min::Vector{T}
+    control_max::Vector{T}
 end
 
-function step(dyn::UnicycleDynamics, state, control)
+# assuming control_lims are symmetric
+Unicycle(dt::T, velocity_max::T, control_lim::Vector{T}) where {T} = Unicycle(dt=dt, velocity_max=velocity_max, control_min=-control_lim, control_max=control_lim)
+
+
+function step(dyn::Unicycle, state, control)
     dt = dyn.dt
-    x, y, theta, = state
+    x, y, theta = state
     w, v = control
     eps = 1E-2
     w_ = abs(w) < eps ? 1.0 :  w
@@ -157,10 +168,10 @@ function step(dyn::UnicycleDynamics, state, control)
     state + [dx; dy; w*dt]
 end
 
-get_position(dyn::UnicycleDynamics, state::VecOrMat{T}) where {T} = state[..,1:2]
-get_velocity(dyn::UnicycleDynamics, state::VecOrMat{T}, control::VecOrMat{T}) where {T} = control[..,end:end]
+get_position(dyn::Unicycle, state::VecOrMat{T}) where {T} = state[..,1:2]
+get_velocity(dyn::Unicycle, state::VecOrMat{T}, control::VecOrMat{T}) where {T} = control[..,2:2]
 
-function initial_straight_trajectory(dyn::UnicycleDynamics, start_position::VecOrMat{T}, end_position::VecOrMat{T}, initial_speed::T, T_horizon::Int64) where {T}
+function initial_straight_trajectory(dyn::Unicycle, start_position::Vector{T}, end_position::Vector{T}, initial_speed::T, T_horizon::Int64) where {T}
     x0, y0 = start_position
     xg, yg = end_position
     initial_heading = atan(yg - y0, xg - x0)
@@ -174,24 +185,26 @@ function initial_straight_trajectory(dyn::UnicycleDynamics, start_position::VecO
     states, controls
 end
 
-function linearized_dynamics(dyn::UnicycleDynamics, state::VecOrMat{T}, control::VecOrMat{T}) where {T}
+function linearized_dynamics(dyn::Unicycle, state::Vector{T}, control::Vector{T}) where {T}
     A = ForwardDiff.jacobian(state -> step(dyn, state, control), state)
     B = ForwardDiff.jacobian(control -> step(dyn, state, control), control)
     C = step(dyn, state, control) - A * state - B * control
     A, B, C
 end
 
-struct DynamicallyExtendedUnicycleDynamics{T} <: Dynamics where {T}
+@with_kw struct DynamicallyExtendedUnicycle{T} <: Dynamics where {T}
     dt::T
-    state_dim::Int64
-    ctrl_dim::Int64
-    max_v::T
-    min_v::T
-    control_min::VecOrMat{T}
-    control_max::VecOrMat{T}
+    state_dim::Int64 = 4
+    ctrl_dim::Int64 = 2
+    velocity_min::T = 0.
+    velocity_max::T
+    control_min::Vector{T}
+    control_max::Vector{T}
 end
 
-function step(dyn::DynamicallyExtendedUnicycleDynamics, state, control)
+DynamicallyExtendedUnicycle(dt::T, velocity_max::T, control_lim::Vector{T}) where {T} = DynamicallyExtendedUnicycle(dt=dt, velocity_max=velocity_max, control_min=-control_lim, control_max=control_lim)
+
+function step(dyn::DynamicallyExtendedUnicycle, state, control)
     dt = dyn.dt
     x, y, theta, v = state
     w, a = control
@@ -203,10 +216,10 @@ function step(dyn::DynamicallyExtendedUnicycleDynamics, state, control)
     state + [dx; dy; w * dt; a * dt]
 end
 
-get_position(dyn::DynamicallyExtendedUnicycleDynamics, state::VecOrMat{T}) where {T} = state[..,1:2]
-get_velocity(dyn::DynamicallyExtendedUnicycleDynamics, state::VecOrMat{T}, control::VecOrMat{T}) where {T} = state[..,end:end]
+get_position(dyn::DynamicallyExtendedUnicycle, state::VecOrMat{T}) where {T} = state[..,1:2]
+get_velocity(dyn::DynamicallyExtendedUnicycle, state::VecOrMat{T}, control::VecOrMat{T}) where {T} = state[..,2:2]
 
-function initial_straight_trajectory(dyn::DynamicallyExtendedUnicycleDynamics, start_position::VecOrMat{T}, end_position::VecOrMat{T}, initial_speed::T, T_horizon::Int64) where {T}
+function initial_straight_trajectory(dyn::DynamicallyExtendedUnicycle, start_position::Vector{T}, end_position::Vector{T}, initial_speed::T, T_horizon::Int64) where {T}
     x0, y0 = start_position
     xg, yg = end_position
     initial_heading = atan(yg - y0, xg - x0)
@@ -220,7 +233,7 @@ function initial_straight_trajectory(dyn::DynamicallyExtendedUnicycleDynamics, s
     states, controls
 end
 
-function linearized_dynamics(dyn::DynamicallyExtendedUnicycleDynamics, state::VecOrMat{T}, control::VecOrMat{T}) where {T}
+function linearized_dynamics(dyn::DynamicallyExtendedUnicycle, state::Vector{T}, control::Vector{T}) where {T}
 
     A = ForwardDiff.jacobian(state -> step(dyn, state, control), state)
     B = ForwardDiff.jacobian(control -> step(dyn, state, control), control)
