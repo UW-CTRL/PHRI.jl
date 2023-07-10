@@ -5,6 +5,10 @@ using JuMP, HiGHS, ECOS
 
 NumberOrVariable = Union{Number, VariableRef}
 
+function delete_and_unregister(model::Model, tag::Symbol)
+    delete(model, model[tag])
+    unregister(model, tag)
+end
 
 compute_quadratic_error_cost(state::Vector{V}, goal::Vector{T}, Qt::Matrix{T}) where {V,T} =  transpose(state - goal) * Qt * (state - goal)
 
@@ -22,7 +26,7 @@ end
 
 function compute_convenience_value(dynamics::Dynamics, states::Vector{V}, controls::Vector{V}, goal::Vector{T}, inconvenience_weights::VecOrMat{T}) where {T,V}
     position = get_position(dynamics, states)
-    speed = get_speed(dynamics, states, controls)
+    speed = get_speed(dynamics, states[1:end-1], controls)
     n = dynamics.state_dim
     total_squared_distance = compute_total_difference_squared(position)
     total_squared_acceleration = compute_total_difference_squared(speed)
