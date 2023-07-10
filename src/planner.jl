@@ -89,7 +89,7 @@ function PlannerOptimizerParams(dyn::Dynamics, hp::PlannerHyperparameters, start
     As = [Matrix{Float64}(undef, n, n) for i in 1:hp.time_horizon]
     Bs = [Matrix{Float64}(undef, n, m) for i in 1:hp.time_horizon]
     Cs = [Vector{Float64}(undef, n) for i in 1:hp.time_horizon]
-    
+
     for (t, (A, B, C)) in enumerate(ABCs)
         As[t] = A
         Bs[t] = B
@@ -123,7 +123,7 @@ function PlannerOptimizerParams(dyn::Dynamics, hps::PlannerHyperparameters, star
     As = [Matrix{Float64}(undef, n, n) for i in 1:hps.time_horizon]
     Bs = [Matrix{Float64}(undef, n, m) for i in 1:hps.time_horizon]
     Cs = [Vector{Float64}(undef, n) for i in 1:hps.time_horizon]
-    
+
     for (t, (A, B, C)) in enumerate(ABCs)
         As[t] = A
         Bs[t] = B
@@ -178,15 +178,15 @@ function InconvenienceProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_pa
     xs = matrix_to_vector_of_vectors(model[:x])
     us = matrix_to_vector_of_vectors(model[:u])
     ps = matrix_to_vector_of_vectors(get_position(dyn, model[:x]))
-    
-    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + hps.collision_slack * ϵ) 
+
+    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + hps.collision_slack * ϵ)
 
     # slack variable positivity constraint
     model[:con_ϵ] = @constraint(model, ϵ >= 0)
 
     # initial state constraint
-    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")    
-    
+    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
+
     # dynamic and collision avoidance constraints
     for t in 1:N
         model[Symbol("linear_dynamics_constraint_$(t)")] = @constraint(model, opt_params.As[t]*xs[t] + opt_params.Bs[t]*us[t] + opt_params.Cs[t] == xs[t+1], base_name="linear_dynamics_constraint_$(t)")
@@ -194,7 +194,7 @@ function InconvenienceProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_pa
     end
     t = N+1
     model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t] .>= -ϵ, base_name="collision_avoidance_constraint_$(t)")
-    
+
     # control and velocity constraints
     for t in 1:N
         model[Symbol("control_constraints_upper_$(t)")] = @constraint(model, us[t] <= dyn.control_max, base_name="control_constraints_upper_$(t)")
@@ -228,17 +228,17 @@ function IdealProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_params::Pl
     model[:u] = @variable(model, u[1:N,1:dyn.ctrl_dim], base_name="u")
     xs = matrix_to_vector_of_vectors(model[:x])
     us = matrix_to_vector_of_vectors(model[:u])
-    
+
     @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))))
 
     # initial state constraint
-    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")    
-    
+    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
+
     # dynamic constraints
     for t in 1:N
         model[Symbol("linear_dynamics_constraint_$(t)")] = @constraint(model, opt_params.As[t]*xs[t] + opt_params.Bs[t]*us[t] + opt_params.Cs[t] == xs[t+1], base_name="linear_dynamics_constraint_$(t)")
     end
-    
+
     # control and speed constraints
     for t in 1:N
         model[Symbol("control_constraints_upper_$(t)")] = @constraint(model, us[t] <= dyn.control_max, base_name="control_constraints_upper_$(t)")
@@ -246,7 +246,7 @@ function IdealProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_params::Pl
         model[Symbol("speed_constraints_upper_$(t)")] = @constraint(model, get_speed(dyn, xs[t], us[t]) .<= dyn.velocity_max , base_name="speed_constraints_upper_$(t)")
         model[Symbol("speed_constraints_lower_$(t)")] = @constraint(model, get_speed(dyn, xs[t], us[t]) .>= dyn.velocity_min , base_name="speed_constraints_lower_$(t)")
     end
-    
+
     IdealProblem(model, xs, us, hps, opt_params)
 end
 
@@ -298,7 +298,7 @@ function update_collision_constraint_linearization!(problem::InconvenienceProble
     other_positions = opt_params.other_positions
     ps = get_position(dyn, previous_states)
     Gs = linearize_collision_avoidance(ps, other_positions)
-    Hs = collision_avoidance_constraint(hps.collision_radius, ps, other_positions) - dot.(Gs, ps)
+    Hs = collision_avoidance_constraint(problem.hps.collision_radius, ps, other_positions) - dot.(Gs, ps)
     for (t, (G, H)) in enumerate(zip(Gs, Hs))
         opt_params.Gs[t] = G
         opt_params.Hs[t] = H
@@ -317,7 +317,7 @@ function update_problem!(problem::IdealProblem)
     us = matrix_to_vector_of_vectors(model[:u])
 
     delete_and_unregister(model, :initial_state)
-    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state") 
+    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
 
     @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))))
 
@@ -339,7 +339,7 @@ function update_problem!(problem::InconvenienceProblem)
     ps = matrix_to_vector_of_vectors(get_position(hps.dynamics, model[:x]))
 
     delete_and_unregister(model, :initial_state)
-    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state") 
+    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
 
     @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + hps.collision_slack * model[:ϵ])
 
@@ -376,7 +376,7 @@ function solve(problem::IdealProblem; iterations=5, verbose=false, keep_history=
         if keep_history
             push!(xs, value.(problem.model[:x]))
             push!(us, value.(problem.model[:u]))
-        end 
+        end
     end
     if keep_history
         return problem, xs, us
@@ -392,7 +392,7 @@ function solve(problem::InconvenienceProblem; iterations=5, verbose=false, keep_
     end
     for i in 1:iterations
         update_dynamics_linearization!(problem)
-        update_collision_constraint_linearization!(incon_problem)
+        update_collision_constraint_linearization!(problem)
         update_problem!(problem)
         MOI.set(problem.model, MOI.Silent(), !verbose)
         optimize!(problem.model);
@@ -401,13 +401,93 @@ function solve(problem::InconvenienceProblem; iterations=5, verbose=false, keep_
         if keep_history
             push!(xs, value.(problem.model[:x]))
             push!(us, value.(problem.model[:u]))
-        end 
+        end
     end
     if keep_history
         return problem, xs, us
     end
     return problem, [value.(problem.model[:x])], [value.(problem.model[:u])]
 end
+
+mutable struct AgentPlanner <: Planner
+    ideal::IdealProblem
+    incon::InconvenienceProblem
+end
+
+@with_kw mutable struct InteractionPlanner
+    ego_planner::AgentPlanner
+    other_planner::AgentPlanner
+end
+
+function InteractionPlanner(ego_hps::PlannerHyperparameters,
+                            other_hps::PlannerHyperparameters,
+                            ego_initial_state::Vector{T},
+                            other_initial_state::Vector{T},
+                            ego_goal_state::Vector{T},
+                            other_goal_state::Vector{T},
+                            solver::String) where {T}
+    ego = ego_hps.dynamics
+    other = other_hps.dynamics
+
+    # setting up ego ideal planner
+    ego_opt_params = PlannerOptimizerParams(ego,
+                        ego_hps,
+                        get_position(ego, ego_initial_state),
+                        get_position(ego, ego_goal_state),
+                        solver
+                        )
+    ego_opt_params.initial_state = ego_initial_state
+    ego_opt_params.goal_state = ego_goal_state
+    ego_ideal_problem = IdealProblem(ego, ego_hps, ego_opt_params)
+
+    # setting up other ideal planner
+    other_opt_params = PlannerOptimizerParams(other,
+                        other_hps,
+                        get_position(other, other_initial_state),
+                        get_position(other, other_goal_state),
+                        solver
+                        )
+    other_opt_params.initial_state = other_initial_state
+    other_opt_params.goal_state = other_goal_state
+    other_ideal_problem = IdealProblem(other, other_hps, other_opt_params)
+
+    # solve ego and other ideal problem
+    _, ego_ideal_xs, ego_ideal_us = solve(ego_ideal_problem, iterations=10, verbose=false, keep_history=false)
+    _, other_ideal_xs, other_ideal_us = solve(other_ideal_problem, iterations=10, verbose=false, keep_history=false)
+
+    # update previous states and controls with ideal solution
+    ego_opt_params.previous_states = matrix_to_vector_of_vectors(ego_ideal_xs[end])
+    ego_opt_params.previous_controls = matrix_to_vector_of_vectors(ego_ideal_us[end])
+    other_opt_params.previous_states = matrix_to_vector_of_vectors(other_ideal_xs[end])
+    other_opt_params.previous_controls = matrix_to_vector_of_vectors(other_ideal_us[end])
+    ego_ps = get_position(ego, ego_opt_params.previous_states)
+    other_ps = get_position(other, other_opt_params.previous_states)
+
+    # set up ego inconvenience planner
+    Gs = linearize_collision_avoidance(ego_ps, other_ps)
+    Hs = collision_avoidance_constraint(ego_hps.collision_radius, ego_ps, other_ps) - dot.(Gs, ego_ps)
+    ego_opt_params.Gs = Gs
+    ego_opt_params.Hs = Hs
+    ego_opt_params.other_positions = other_ps
+    ego_incon_problem = InconvenienceProblem(ego, ego_hps, ego_opt_params)
+
+    # set up other inconvenience planner
+    # update previous states and controls with ideal solution
+    Gs = linearize_collision_avoidance(other_ps, ego_ps)
+    Hs = collision_avoidance_constraint(other_hps.collision_radius, other_ps, ego_ps) - dot.(Gs, other_ps)
+    other_opt_params.Gs = Gs
+    other_opt_params.Hs = Hs
+    other_opt_params.other_positions = ego_ps
+    other_incon_problem = InconvenienceProblem(other, other_hps, other_opt_params)
+
+    ego_planner = AgentPlanner(ego_ideal_problem, ego_incon_problem)
+    other_planner = AgentPlanner(other_ideal_problem, other_incon_problem)
+
+    InteractionPlanner(ego_planner, other_planner)
+end
+
+
+
 
 # function update_planner_params!(Plan, prev_state, prev_control, initial_state, goal_state)
 #     ideal_traj = ...
@@ -450,7 +530,7 @@ end
 #         model,
 #         Min,
 #         sum(x[n, :]' * Q * x[n, :] for n in 1:N) + sum(u[n, :]' * R * u[n, :] * markup^n for n in 1:N) + (x[N + 1, :] - statef)' * Qt * (x[N + 1, :] - statef) + sum(slack[n] * slack_weight for n in 1:N)
-#     )   
+#     )
 
 #     @constraint(model, dyn <= get_velocity(dyn, x[n, :], u[n, :] <= v_max for n = 1:N))
 #     @constraint(model, u[:, n] <= u_max for n = 1:N)
