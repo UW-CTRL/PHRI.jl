@@ -157,11 +157,6 @@ mutable struct IdealProblem <: Problem
     opt_params::PlannerOptimizerParams
 end
 
-# mutable struct InteractionPlanner <: Planner
-#     ideal::IdealProblem
-#     incon::InconvenienceProblem
-# end
-
 # setup inconvenience problem
 function InconvenienceProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
     n = dyn.state_dim
