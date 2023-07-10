@@ -101,7 +101,7 @@ function linearized_dynamics(dyn::DoubleIntegrator2D, state::Vector{T}, control:
     A, B, C
 end
 
-@with_kw struct SingleIntegratorPolar2D{T} <: IntegratorDynamics where {T<:NumberOrVariable}
+@with_kw struct SingleIntegratorPolar2D{T} <: Dynamics where {T<:NumberOrVariable}
     dt::T
     state_dim::Int64 = 2    # [x, y]
     ctrl_dim::Int64 = 2     # [θ, v]
@@ -125,7 +125,7 @@ end
 
 get_position(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}) where {T<:NumberOrVariable} = state[..,1:2]
 get_velocity(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T<:NumberOrVariable} = control[2] .* [cos.(control[1]) sin.(control[1])]
-get_speed(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T<:NumberOrVariable} = control[2:2]
+get_speed(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}, control::VecOrMat{T}) where {T<:NumberOrVariable} = control[..,2:2]
 
 function initial_straight_trajectory(dyn::SingleIntegratorPolar2D, start_position::Vector{T}, end_position::Vector{T}, initial_speed::T, T_horizon::Int64) where {T<:NumberOrVariable}
     x0, y0 = start_position
@@ -175,7 +175,7 @@ end
 
 get_position(dyn::Unicycle, state::VecOrMat{T}) where {T<:NumberOrVariable} = state[..,1:2]
 get_velocity(dyn::Unicycle, state::VecOrMat{T}, control::VecOrMat{T}) where {T<:NumberOrVariable} = control[2] .* [cos.(state[3]) sin.(state[3])]
-get_speed(dyn::Unicycle, state::VecOrMat{T}, control::VecOrMat{T}) where {T<:NumberOrVariable} = control[2:2]
+get_speed(dyn::Unicycle, state::VecOrMat{T}, control::VecOrMat{T}) where {T<:NumberOrVariable} = control[..,2:2]
 
 
 function initial_straight_trajectory(dyn::Unicycle, start_position::Vector{T}, end_position::Vector{T}, initial_speed::T, T_horizon::Int64) where {T<:NumberOrVariable}
@@ -225,7 +225,7 @@ end
 
 get_position(dyn::DynamicallyExtendedUnicycle, state::VecOrMat{T}) where {T<:NumberOrVariable} = state[..,1:2]
 get_velocity(dyn::DynamicallyExtendedUnicycle, state::VecOrMat{T}, control::VecOrMat{T}) where {T<:NumberOrVariable} =  state[4] .* [cos.(state[3]) sin.(state[3])]
-get_speed(dyn::DynamicallyExtendedUnicycle, state::VecOrMat{T}, control::VecOrMat{T}) where {T<:NumberOrVariable} =  state[4:4]
+get_speed(dyn::DynamicallyExtendedUnicycle, state::VecOrMat{T}, control::VecOrMat{T}) where {T<:NumberOrVariable} = state[..,4:4]
 
 function initial_straight_trajectory(dyn::DynamicallyExtendedUnicycle, start_position::Vector{T}, end_position::Vector{T}, initial_speed::T, T_horizon::Int64) where {T<:NumberOrVariable}
     x0, y0 = start_position
