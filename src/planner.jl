@@ -417,6 +417,10 @@ end
 @with_kw mutable struct InteractionPlanner
     ego_planner::AgentPlanner
     other_planner::AgentPlanner
+    ego_opt_params::PlannerOptimizerParams
+    other_opt_params::PlannerOptimizerParams
+    ego_hps::PlannerHyperparameters
+    other_hps::PlannerHyperparameters
 end
 
 function InteractionPlanner(ego_hps::PlannerHyperparameters,
@@ -452,8 +456,8 @@ function InteractionPlanner(ego_hps::PlannerHyperparameters,
     other_ideal_problem = IdealProblem(other, other_hps, other_opt_params)
 
     # solve ego and other ideal problem
-    _, ego_ideal_xs, ego_ideal_us = solve(ego_ideal_problem, iterations=10, verbose=false, keep_history=false)
-    _, other_ideal_xs, other_ideal_us = solve(other_ideal_problem, iterations=10, verbose=false, keep_history=false)
+    _, ego_ideal_xs, ego_ideal_us = solve(ego_ideal_problem, iterations=50, verbose=false, keep_history=false)
+    _, other_ideal_xs, other_ideal_us = solve(other_ideal_problem, iterations=50, verbose=false, keep_history=false)
 
     # update previous states and controls with ideal solution
     ego_opt_params.previous_states = matrix_to_vector_of_vectors(ego_ideal_xs[end])
@@ -483,7 +487,7 @@ function InteractionPlanner(ego_hps::PlannerHyperparameters,
     ego_planner = AgentPlanner(ego_ideal_problem, ego_incon_problem)
     other_planner = AgentPlanner(other_ideal_problem, other_incon_problem)
 
-    InteractionPlanner(ego_planner, other_planner)
+    InteractionPlanner(ego_planner, other_planner, ego_opt_params, other_opt_params, ego_hps, other_hps)
 end
 
 
