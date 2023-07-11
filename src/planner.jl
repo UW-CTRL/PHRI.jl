@@ -417,10 +417,6 @@ end
 @with_kw mutable struct InteractionPlanner
     ego_planner::AgentPlanner
     other_planner::AgentPlanner
-    ego_opt_params::PlannerOptimizerParams
-    other_opt_params::PlannerOptimizerParams
-    ego_hps::PlannerHyperparameters
-    other_hps::PlannerHyperparameters
 end
 
 function InteractionPlanner(ego_hps::PlannerHyperparameters,
