@@ -483,7 +483,7 @@ function InteractionPlanner(ego_hps::PlannerHyperparameters,
     ego_planner = AgentPlanner(ego_ideal_problem, ego_incon_problem)
     other_planner = AgentPlanner(other_ideal_problem, other_incon_problem)
 
-    InteractionPlanner(ego_planner, other_planner, ego_opt_params, other_opt_params, ego_hps, other_hps)
+    InteractionPlanner(ego_planner, other_planner)
 end
 
 
