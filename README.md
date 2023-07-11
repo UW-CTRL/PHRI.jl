@@ -14,3 +14,4 @@
 - [ ] parameter sweep
 - [ ] make it a proper package
 - [ ] ROS integration -- have human control human agent with xbox controller
+- [ ] Figure out how to remove the automatically generated compatibility branches.
