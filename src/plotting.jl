@@ -87,10 +87,9 @@ function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_
     # TODO
     # plotting speed
 
-    ego_dynamics = problem.ego_hps.dynamics
-    other_dynamics = problem.other_hps.dynamics
-
-    N = problem.ego_hps.time_horizon
+    ego_dynamics = problem.ego_planner.ideal.hps.dynamics
+    other_dynamics = problem.other_planner.ideal.hps.dynamics
+    N = problem.ego_planner.ideal.hps.time_horizon
 
     ego_ideal_speed = get_speed(ego_dynamics, ego_ideal_xs, ego_ideal_us)
     ego_incon_speed = get_speed(ego_dynamics, ego_incon_xs, ego_incon_us)
