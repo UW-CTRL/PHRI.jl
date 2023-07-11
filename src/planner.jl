@@ -291,6 +291,20 @@ function update_dynamics_linearization!(problem::Problem)
     end
 end
 
+function update_dynamics_linearization!(problem::Problem, new_states::Vector{Vector{T}}, new_controls::Vector{Vector{T}}) where{T}
+    opt_params = problem.opt_params
+    opt_params.previous_states = new_states
+    opt_params.previous_controls = new_controls
+    dyn = problem.hps.dynamics
+    N = size(opt_params.As)[1]
+    ABCs = linearized_dynamics(dyn, new_states[1:N], new_controls[1:N])
+    for (t, (A, B, C)) in enumerate(ABCs)
+        opt_params.As[t] = A
+        opt_params.Bs[t] = B
+        opt_params.Cs[t] = C
+    end
+end
+
 function update_collision_constraint_linearization!(problem::InconvenienceProblem)
     opt_params = problem.opt_params
     dyn = problem.hps.dynamics
