@@ -507,3 +507,30 @@ function update_agent!(agent::AgentPlanner, other::AgentPlanner)
     update_problem!(agent.incon)
     agent.incon
 end
+
+function IteratedBestResponse(ip::InteractionPlanner, iterations::Int64, first="ego"::String)
+    if first != "ego"                       # determine which agent solves first
+        first_agent = ip.other_planner
+        second_agent = ip.ego_planner
+    else
+        first_agent = ip.ego_planner
+        second_agent = ip.other_planner
+    end
+
+    @time for i in 1:iterations
+        update_agent!(first_agent, second_agent)
+        solve(first_agent.incon)
+        update_agent!(second_agent, first_agent)
+        solve(second_agent.incon)
+    end
+    
+    if first != "ego"
+        ip.other_planner = first_agent
+        ip.ego_planner = second_agent
+    else
+        ip.ego_planner = first_agent
+        ip.other_planner = second_agent
+    end
+    ip
+
+end 
