@@ -123,3 +123,42 @@ function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_
     plot(plot_traj, plot_ctrl, plot_speed, layout = l)
 end
 
+function animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
+    a = Animation()
+
+    linewidth = 3
+    alpha_ideal = 0.2
+    ego_color = :blue
+    other_color = :red
+
+    ego_ideal = ip.ego_planner.ideal
+    ego_incon = ip.ego_planner.incon
+    other_ideal = ip.other_planner.ideal
+    other_incon = ip.other_planner.incon
+
+    ego_ideal_xs = value.(ego_ideal.model[:x])
+    ego_incon_xs = value.(ego_incon.model[:x])
+    other_ideal_xs = value.(other_ideal.model[:x])
+    other_incon_xs = value.(other_incon.model[:x])
+
+    plt = plot(xlim=pos_xlims, ylim=pos_ylims, xlabel="x position", ylabel="y position", title="Position Animation", arrow=true)
+    plot!(plt, ego_incon_xs[1:1,1], ego_incon_xs[1:1,2], color=ego_color, linewidth=linewidth, lab="Robot")
+    plot!(plt, other_incon_xs[1:1,1], other_incon_xs[1:1,2], color=other_color, linewidth=linewidth, lab="Human")
+
+
+    print(typeof(ip.ego_planner.ideal.hps.time_horizon))
+
+    for i in 1:ip.ego_planner.ideal.hps.time_horizon
+        # plot!(plt, ego_ideal_xs[1:i,1], ego_ideal_xs[1:i,2], color=:purple, linewidth=linewidth, lab="", alpha=alpha_ideal)
+        plot!(plt, ego_incon_xs[1:i,1], ego_incon_xs[1:i,2], color=ego_color, linewidth=linewidth, lab="")
+        # plot!(plt, other_ideal_xs[1:i,1], other_ideal_xs[1:i,2], color=:magenta, linewidth=linewidth, lab="", alpha=alpha_ideal)
+        plot!(plt, other_incon_xs[1:i,1], other_incon_xs[1:i,2], color=other_color, linewidth=linewidth, lab="")
+        frame(a, plt)
+    end
+
+    if save_name != "none"
+        gif(a, "../animations/$save_name.gif", fps = 15) 
+    end 
+
+    return gif(a, fps=60)
+end
