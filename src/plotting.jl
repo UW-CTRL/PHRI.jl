@@ -142,6 +142,9 @@ function animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3],
     other_incon_xs = value.(other_incon.model[:x])
 
     plt = plot(xlim=pos_xlims, ylim=pos_ylims, xlabel="x position", ylabel="y position", title="Position Animation", arrow=true)
+    plot!(plt, ego_incon_xs[1:1,1], ego_incon_xs[1:1,2], color=ego_color, linewidth=linewidth, lab="Robot")
+    plot!(plt, other_incon_xs[1:1,1], other_incon_xs[1:1,2], color=other_color, linewidth=linewidth, lab="Human")
+
 
     print(typeof(ip.ego_planner.ideal.hps.time_horizon))
 
