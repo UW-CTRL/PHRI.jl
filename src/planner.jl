@@ -519,9 +519,9 @@ function IteratedBestResponse(ip::InteractionPlanner, iterations::Int64, first="
 
     for i in 1:iterations
         update_agent!(first_agent, second_agent)
-        solve(first_agent.incon)
+        solve(first_agent.incon, iterations=1)
         update_agent!(second_agent, first_agent)
-        solve(second_agent.incon)
+        solve(second_agent.incon, iterations=1)
     end
     
     if first != "ego"
