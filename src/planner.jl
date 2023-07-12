@@ -500,57 +500,10 @@ function InteractionPlanner(ego_hps::PlannerHyperparameters,
     InteractionPlanner(ego_planner, other_planner)
 end
 
-
-
-
-# function update_planner_params!(Plan, prev_state, prev_control, initial_state, goal_state)
-#     ideal_traj = ...
-# end
-
-
-
-# mutable struct ModelInitialization
-#     model::Model
-#     x::Array{VariableRef, 2}
-#     u::Array{VariableRef, 2}
-#     slack::Array{VariableRef, 1}
-# end
-
-
-# function InitialializeInconvenienceProblem(dyn::Dynamics, hp::Parameters, op::Parameters)
-#     local markup = hp.markup
-#     local slack_weight = hp.collision_slack
-#     local Q = hp.Q
-#     local Qt = hp.Qt
-#     local R = hp.R
-#     local N = hp.time_horizon
-#     local statef = op.goal_state
-
-#     solver = op.solver
-
-#     if solver == "ecos"
-#         model = Model(ECOS.Optimizer)
-#     elseif solver == "highs"
-#         model = Model(HiGHS.Optimizer)
-#     else
-#         model = Model(() -> Gurobi.Optimizer(GRB_ENV))
-#     end
-
-#     @variable(model, x[ 1:N + 1, 1:dyn.state_dim])      # initialize state variable for qp_model
-#     @variable(model, u[1:N, 1:dyn.ctrl_dim])           # initialize control variable for qp_model
-#     @variable(model, slack[1:N])                       # initialize slack variable for qp_model
-
-#     @objective(
-#         model,
-#         Min,
-#         sum(x[n, :]' * Q * x[n, :] for n in 1:N) + sum(u[n, :]' * R * u[n, :] * markup^n for n in 1:N) + (x[N + 1, :] - statef)' * Qt * (x[N + 1, :] - statef) + sum(slack[n] * slack_weight for n in 1:N)
-#     )
-
-#     @constraint(model, dyn <= get_velocity(dyn, x[n, :], u[n, :] <= v_max for n = 1:N))
-#     @constraint(model, u[:, n] <= u_max for n = 1:N)
-
-#     return ModelInitialization(model, x, u, slack)
-# end
-
-# function InitializeIdealProblem()   # TODO
-# end
+function update_agent!(agent::AgentPlanner, other::AgentPlanner)
+    agent.incon.opt_params.other_positions = get_position(other.incon.hps.dynamics, other.incon.opt_params.previous_states)
+    update_collision_constraint_linearization!(agent.incon)
+    update_dynamics_linearization!(agent.incon)
+    update_problem!(agent.incon)
+    agent.incon
+end
