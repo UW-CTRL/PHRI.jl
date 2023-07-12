@@ -532,5 +532,4 @@ function IteratedBestResponse(ip::InteractionPlanner, iterations::Int64, first="
         ip.other_planner = second_agent
     end
     ip
-
 end 
