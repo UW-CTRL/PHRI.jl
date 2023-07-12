@@ -517,7 +517,7 @@ function IteratedBestResponse(ip::InteractionPlanner, iterations::Int64, first="
         second_agent = ip.other_planner
     end
 
-    @time for i in 1:iterations
+    for i in 1:iterations
         update_agent!(first_agent, second_agent)
         solve(first_agent.incon)
         update_agent!(second_agent, first_agent)
