@@ -508,28 +508,30 @@ function update_agent!(agent::AgentPlanner, other::AgentPlanner)
     agent.incon
 end
 
-function IteratedBestResponse(ip::InteractionPlanner, iterations::Int64, first="ego"::String)
-    if first != "ego"                       # determine which agent solves first
-        first_agent = ip.other_planner
-        second_agent = ip.ego_planner
+function IteratedBestResponse(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)
+    if leader != "ego"                       # determine which agent solves leader
+        leader_agent = ip.other_planner
+        follower_agent = ip.ego_planner
     else
-        first_agent = ip.ego_planner
-        second_agent = ip.other_planner
+        leader_agent = ip.ego_planner
+        follower_agent = ip.other_planner
     end
 
+    # ideal_path computation for ego and other
+    # opt_params.inconvenience_budget for ego and other
+
     for i in 1:iterations
-        update_agent!(first_agent, second_agent)
-        solve(first_agent.incon, iterations=1)
-        update_agent!(second_agent, first_agent)
-        solve(second_agent.incon, iterations=1)
+        
+        # linearize collision avoidance constraints
+        # linearize dynamics
+        # update JuMP model
+        # update previous state and controls with latest solution
+        leader_agent.incon.opt_params.other_positions = get_position(follower_agent.incon.hps.dynamics, follower_agent.incon.opt_params.previous_states)
+        solve(leader_agent.incon, iterations=1)
+        follower_agent.incon.opt_params.other_positions = get_position(leader_agent.incon.hps.dynamics, leader_agent.incon.opt_params.previous_states)
+        solve(follower_agent.incon, iterations=1)
     end
-    
-    if first != "ego"
-        ip.other_planner = first_agent
-        ip.ego_planner = second_agent
-    else
-        ip.ego_planner = first_agent
-        ip.other_planner = second_agent
-    end
+
+    # ip, value.(ip.ego_planner.incon.xs), value.(ip.ego_planner.incon.us), value.(ip.ego_planner.incon.us)[1]
     ip
 end 
