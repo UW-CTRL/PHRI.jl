@@ -17,4 +17,4 @@
 - [ ] Figure out how to remove the automatically generated compatibility branches.
 
 
-![](https://github.com/UW-CTRL/ProactiveHRI.jl/blob/animation/animations/save_test.gif)
+![](https://github.com/UW-CTRL/ProactiveHRI.jl/blob/ibr_dev/animations/avoidance.gif)
