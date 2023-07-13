@@ -61,3 +61,15 @@ linearize_collision_avoidance(ego_dyn::Dynamics, ego_states::Vector{Vector{T}}, 
 function linearize_collision_avoidance(ego_position::Vector, other_position::Vector)
     2 * (ego_position - other_position)
 end 
+
+function update_convenience_budget!(problem::Problem)
+    dyn = problem.hps.dynamics
+    xs = matrix_to_vector_of_vectors(value.(problem.model[:x]))
+    us = matrix_to_vector_of_vectors(value.(problem.model[:u]))
+    goal = problem.opt_params.goal_state
+    weights = problem.hps.inconvenience_weights
+
+    convenience_value = compute_convenience_value(dyn, xs, us, goal, weights)
+
+    problem.opt_params.inconvenience_budget = convenience_value * (1 + problem.hps.inconvenience_ratio)
+end

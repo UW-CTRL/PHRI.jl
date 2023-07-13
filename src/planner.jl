@@ -204,7 +204,7 @@ function InconvenienceProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_pa
     end
 
     # inconvenience budget constraint
-    model[:inconvenience_budget] = @constraint(model, compute_convenience_value(dyn, xs, us, opt_params.goal_state, hps.inconvenience_weights) <= opt_params.inconvenience_budget)
+    model[:inconvenience_budget] = @constraint(model, compute_convenience_value(dyn, xs, us, opt_params.goal_state, hps.inconvenience_weights) <= opt_params.inconvenience_budget, base_name="inconvenience_budget")
     InconvenienceProblem(model, xs, us, ϵ, hps, opt_params)
 end
 
@@ -370,7 +370,9 @@ function update_problem!(problem::InconvenienceProblem)
     end
 
     # update inconvenience budget constraint
-    set_normalized_rhs(model[:inconvenience_budget], opt_params.inconvenience_budget)
+    # set_normalized_rhs(model[:inconvenience_budget], opt_params.inconvenience_budget)     # this had issues
+    delete_and_unregister(model, :inconvenience_budget)
+    model[:inconvenience_budget] = @constraint(model, compute_convenience_value(problem.hps.dynamics, xs, us, opt_params.goal_state, hps.inconvenience_weights) <= opt_params.inconvenience_budget, base_name="inconvenience_budget")
 end
 
 function solve(problem::IdealProblem; iterations=5, verbose=false, keep_history=false)
@@ -395,6 +397,10 @@ function solve(problem::IdealProblem; iterations=5, verbose=false, keep_history=
     if keep_history
         return problem, xs, us
     end
+
+    # update inconvenience budget
+    update_convenience_budget!(problem)
+
     return problem, [value.(problem.model[:x])], [value.(problem.model[:u])]
 end
 
