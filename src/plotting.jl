@@ -35,7 +35,6 @@ function plot_solve_solution(problem::Problem; pos_xlims=[-1,8], pos_ylims=[-3, 
 end
 
 
-
 function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_ylims=[-3, 3])
 
     l = @layout [a b c] 
@@ -58,13 +57,13 @@ function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_
 
     ego_ideal_xs = value.(ego_ideal.model[:x])
     ego_ideal_us = value.(ego_ideal.model[:u])
-    ego_incon_xs = value.(ego_incon.model[:x])
+    ego_incon_xs = vector_of_vectors_to_matrix(ego_incon.opt_params.previous_states)
     ego_incon_us = value.(ego_incon.model[:u])
 
     other_ideal_xs = value.(other_ideal.model[:x])
     other_ideal_us = value.(other_ideal.model[:u])
-    other_incon_xs = value.(other_incon.model[:x])
-    other_incon_us = value.(other_incon.model[:u])
+    other_incon_xs = vector_of_vectors_to_matrix(other_incon.opt_params.previous_states)
+    other_incon_us = vector_of_vectors_to_matrix(other_incon.opt_params.previous_controls)
 
     ego_goal_state = ego_ideal.opt_params.goal_state
     other_goal_state = other_ideal.opt_params.goal_state
@@ -84,7 +83,6 @@ function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_
     plot!(plot_traj, other_incon_xs[:,1], other_incon_xs[:,2], color=other_color, linewidth=linewidth, label="other")
     scatter!(plot_traj, other_incon_xs[:,1], other_incon_xs[:,2], color=other_color, label="")
 
-    # TODO
     # plotting speed
 
     ego_dynamics = problem.ego_planner.ideal.hps.dynamics
@@ -122,6 +120,7 @@ function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_
 
     plot(plot_traj, plot_ctrl, plot_speed, layout = l)
 end
+
 
 function animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
     a = Animation()
@@ -174,9 +173,9 @@ function special_animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=
     other_incon = ip.other_planner.incon
 
     ego_ideal_xs = value.(ego_ideal.model[:x])
-    ego_incon_xs = value.(ego_incon.model[:x])
+    ego_incon_xs = vector_of_vectors_to_matrix(ego_incon.opt_params.previous_states)
     other_ideal_xs = value.(other_ideal.model[:x])
-    other_incon_xs = value.(other_incon.model[:x])
+    other_incon_xs = vector_of_vectors_to_matrix(other_incon.opt_params.previous_states)
 
     # plt = plot(xlim=pos_xlims, ylim=pos_ylims, xlabel="x position", ylabel="y position", title="Position Animation", arrow=true)
     # plot!(plt, ego_incon_xs[1:1,1], ego_incon_xs[1:1,2], color=ego_color, linewidth=linewidth, lab="Robot")
