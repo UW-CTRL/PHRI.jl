@@ -589,5 +589,5 @@ function IteratedBestResponseMPC(ip::InteractionPlanner, iterations::Int64, lead
     end
 
     # ip, value.(ip.ego_planner.incon.xs), value.(ip.ego_planner.incon.us), value.(ip.ego_planner.incon.us)[1]
-    ip
+    ip, value.(ip.ego_planner.incon.model[:x]), value.(ip.ego_planner.incon.model[:u])
 end
