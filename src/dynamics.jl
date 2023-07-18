@@ -3,6 +3,7 @@ using EllipsisNotation
 using ForwardDiff
 using Parameters
 using JuMP
+using AngleBetweenVectors
 
 abstract type Dynamics end
 abstract type IntegratorDynamics <: Dynamics end
@@ -120,7 +121,7 @@ function step(dyn::SingleIntegratorPolar2D, state, control)
     θ, v = control
     dx = v * cos(θ) * dt
     dy = v * sin(θ) * dt
-    state + [dx; dy]
+    state + [dx; dy]    # [x, y]
 end
 
 get_position(dyn::SingleIntegratorPolar2D, state::VecOrMat{T}) where {T<:NumberOrVariable} = state[..,1:2]

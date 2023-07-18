@@ -18,7 +18,7 @@ function Sim(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horiz
         if i != sim_horizon other_controls[i] = other_ip.ego_planner.incon.opt_params.previous_controls[1] end
 
         ego_state = step(ego_ip.ego_planner.incon.hps.dynamics, ego_ip.ego_planner.incon.opt_params.previous_states[1], ego_ip.ego_planner.incon.opt_params.previous_controls[1])
-        other_state = step(other_ip.ego_planner.incon.hps.dynamics, ego_ip.other_planner.incon.opt_params.previous_states[1], other_ip.ego_planner.incon.opt_params.previous_controls[1])
+        other_state = step(other_ip.ego_planner.incon.hps.dynamics, other_ip.ego_planner.incon.opt_params.previous_states[1], other_ip.ego_planner.incon.opt_params.previous_controls[1])
 
         # solve for the next iteration
         MPC_step(ego_ip, ego_state, other_state, ibr_iterations=ibr_iterations, leader=leader)

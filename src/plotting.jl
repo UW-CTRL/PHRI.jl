@@ -201,3 +201,33 @@ function special_animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=
 
     return gif(a, fps=60)
 end 
+
+# animate function for MPC sim
+function animation(ego_path::Matrix{Float64}, other_path::Matrix{Float64}; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
+    a = Animation()
+
+    linewidth = 3
+    alpha_ideal = 0.2
+    ego_color = :blue
+    other_color = :red
+
+    ego_xs = ego_path
+    other_xs = other_path
+
+    plt = plot(xlim=pos_xlims, ylim=pos_ylims, xlabel="x position", ylabel="y position", title="Position Animation", arrow=true)
+
+
+    for i in 1:length(ego_xs[:, 1])
+        # plot!(plt, ego_ideal_xs[1:i,1], ego_ideal_xs[1:i,2], color=:purple, linewidth=linewidth, lab="", alpha=alpha_ideal)
+        plt = plot(ego_xs[1:i,1], ego_xs[1:i,2], color=ego_color, linewidth=linewidth, lab="", xlim=pos_xlims, ylim=pos_ylims, xlabel="x position", ylabel="y position", title="Position Animation")
+        # plot!(plt, other_ideal_xs[1:i,1], other_ideal_xs[1:i,2], color=:magenta, linewidth=linewidth, lab="", alpha=alpha_ideal)
+        plot!(plt, other_xs[1:i,1], other_xs[1:i,2], color=other_color, linewidth=linewidth, lab="")
+        frame(a, plt)
+    end
+
+    if save_name != "none"
+        gif(a, "../animations/$save_name.gif", fps = 15) 
+    end 
+
+    return gif(a, fps=60)
+end
