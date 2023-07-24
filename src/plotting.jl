@@ -159,7 +159,7 @@ function animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3],
     return gif(a, fps=60)
 end
 
-function special_animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
+function avoidance_animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
     a = Animation()
 
     linewidth = 3
