@@ -514,7 +514,7 @@ function update_agent!(agent::AgentPlanner, other::AgentPlanner)
     agent.incon
 end
 
-function IteratedBestResponse(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)
+function ibr(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)
     if leader != "ego"                       # determine which agent solves leader
         leader_agent = ip.other_planner
         follower_agent = ip.ego_planner
