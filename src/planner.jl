@@ -542,7 +542,7 @@ function ibr(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)
     ip
 end
 
-function IteratedBestResponseMPC(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)
+function ibr_mpc(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)
     # ideal_path computation for ego and other
     # update previous states and controls with ego's  ideal solution using initial straightline trajectory
     ego_dyn = ip.ego_planner.ideal.hps.dynamics
