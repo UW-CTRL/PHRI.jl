@@ -15,3 +15,6 @@
 - [ ] make it a proper package
 - [ ] ROS integration -- have human control human agent with xbox controller
 - [ ] Figure out how to remove the automatically generated compatibility branches.
+
+
+![](https://github.com/UW-CTRL/ProactiveHRI.jl/blob/ibr_dev/animations/avoidance.gif)
