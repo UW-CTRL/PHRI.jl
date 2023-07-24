@@ -21,8 +21,8 @@ function Sim(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horiz
         other_state = step(other_ip.ego_planner.incon.hps.dynamics, other_ip.ego_planner.incon.opt_params.previous_states[1], other_ip.ego_planner.incon.opt_params.previous_controls[1])
 
         # solve for the next iteration
-        MPC_step(ego_ip, ego_state, other_state, ibr_iterations=ibr_iterations, leader=leader)
-        MPC_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
+        mpc_step(ego_ip, ego_state, other_state, ibr_iterations=ibr_iterations, leader=leader)
+        mpc_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
     end
 
     # cast vector of vectors to matrix for easier plotting
