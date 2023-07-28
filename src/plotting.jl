@@ -240,11 +240,11 @@ function plot_solve_solution(problem::SaveData; pos_xlims=[-1,11], pos_ylims=[-6
         end
 
         for l in 1:ego_ctrl_dim
-            plot_ctrl_ego[1][end - l][:label] = "u$(ego_ctrl_dim - l + 1)"
+            plot_ctrl_ego[1][end - (l - 1)][:label] = "u$(ego_ctrl_dim - l + 1)"
         end
 
         for m in 1:ego_ctrl_dim
-            plot_ctrl_other[1][end - m][:label] = "u$(ego_ctrl_dim - m + 1)"
+            plot_ctrl_other[1][end - (m - 1)][:label] = "u$(ego_ctrl_dim - m + 1)"
         end
     elseif show_speed & show_control
         plot_speed = plot(size=(height, height), xlabel="time step", ylabel="Speed [m/s]", title="Speed", margin=10mm, ylim=[0, max_speed], legend=:bottomright)
