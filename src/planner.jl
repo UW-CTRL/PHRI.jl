@@ -542,6 +542,53 @@ function ibr(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)
     ip
 end
 
+@with_kw mutable struct SaveData
+    previous_ips::Vector{InteractionPlanner}
+end
+
+function ibr_save(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)     # for param sweep saving
+    if leader != "ego"                       # determine which agent solves leader
+        leader_agent = ip.other_planner
+        follower_agent = ip.ego_planner
+    else
+        leader_agent = ip.ego_planner
+        follower_agent = ip.other_planner
+    end
+
+    data = SaveData(Vector{InteractionPlanner}(undef, iterations))
+
+    # ideal_path computation for ego and other
+    # opt_params.inconvenience_budget for ego and other
+
+    leader_xs = Vector{Matrix{Float64}}(undef, iterations)
+    follower_xs = Vector{Matrix{Float64}}(undef, iterations)
+    leader_us = Vector{Matrix{Float64}}(undef, iterations)
+    follower_us = Vector{Matrix{Float64}}(undef, iterations)
+
+
+    for i in 1:iterations
+        
+        # linearize collision avoidance constraints
+        # linearize dynamics
+        # update JuMP model
+        # update previous state and controls with latest solution
+        leader_agent.incon.opt_params.other_positions = get_position(follower_agent.incon.hps.dynamics, follower_agent.incon.opt_params.previous_states)
+        _, xs_, us_ = solve(leader_agent.incon, iterations=1)
+        leader_xs[i] = xs_[1]
+        leader_us[i] = us_[1]
+
+        follower_agent.incon.opt_params.other_positions = get_position(leader_agent.incon.hps.dynamics, leader_agent.incon.opt_params.previous_states)
+        _, xs_, us_ = solve(follower_agent.incon, iterations=1)
+        follower_xs[i] = xs_[1]
+        follower_us[i] = us_[1]
+        data.previous_ips[i] = deepcopy(ip)     # store data at each iteration
+
+    end
+
+    # ip, value.(ip.ego_planner.incon.xs), value.(ip.ego_planner.incon.us), value.(ip.ego_planner.incon.us)[1]
+    data, leader_xs, leader_us, follower_xs, follower_us
+end
+
 function ibr_mpc(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)
     # ideal_path computation for ego and other
     # update previous states and controls with ego's  ideal solution using initial straightline trajectory
