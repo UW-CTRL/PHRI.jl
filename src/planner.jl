@@ -560,6 +560,12 @@ function ibr_save(ip::InteractionPlanner, iterations::Int64, leader="ego"::Strin
     # ideal_path computation for ego and other
     # opt_params.inconvenience_budget for ego and other
 
+    leader_xs = Vector{Matrix{Float64}}(undef, iterations)
+    follower_xs = Vector{Matrix{Float64}}(undef, iterations)
+    leader_us = Vector{Matrix{Float64}}(undef, iterations)
+    follower_us = Vector{Matrix{Float64}}(undef, iterations)
+
+
     for i in 1:iterations
         
         # linearize collision avoidance constraints
@@ -567,15 +573,20 @@ function ibr_save(ip::InteractionPlanner, iterations::Int64, leader="ego"::Strin
         # update JuMP model
         # update previous state and controls with latest solution
         leader_agent.incon.opt_params.other_positions = get_position(follower_agent.incon.hps.dynamics, follower_agent.incon.opt_params.previous_states)
-        solve(leader_agent.incon, iterations=1)
+        _, xs_, us_ = solve(leader_agent.incon, iterations=1)
+        leader_xs[i] = xs_[1]
+        leader_us[i] = us_[1]
+
         follower_agent.incon.opt_params.other_positions = get_position(leader_agent.incon.hps.dynamics, leader_agent.incon.opt_params.previous_states)
-        solve(follower_agent.incon, iterations=1)
+        _, xs_, us_ = solve(follower_agent.incon, iterations=1)
+        follower_xs[i] = xs_[1]
+        follower_us[i] = us_[1]
         data.previous_ips[i] = deepcopy(ip)     # store data at each iteration
 
     end
 
     # ip, value.(ip.ego_planner.incon.xs), value.(ip.ego_planner.incon.us), value.(ip.ego_planner.incon.us)[1]
-    data
+    data, leader_xs, leader_us, follower_xs, follower_us
 end
 
 function ibr_mpc(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)
