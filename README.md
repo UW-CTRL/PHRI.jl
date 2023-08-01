@@ -28,6 +28,11 @@ To install ProactiveHRI.jl as a Julia package:
 # Using ProactiveHRI.jl
 This is an example of how to use the ProactiveHRI.jl package to set up a planning problem between two agents (human and robot).
 
+Import ProactiveHRI Package
+```jl
+using ProactiveHRI
+```
+
 Define constants and parameters
 ```jl
 dt = 0.1
