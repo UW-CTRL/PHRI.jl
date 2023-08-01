@@ -9,4 +9,6 @@ include("plotting.jl")
 include("mpc.jl")
 include("sim.jl")
 
+export Unicycle
+
 end
