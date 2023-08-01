@@ -1,7 +1,6 @@
 module ProactiveHRI
 
 # Write your package code here.
-__precompile__()
 
 export SingleIntegrator2D, DoubleIntegrator2D, SingleIntegratorPolar2D, Unicycle, DynamicallyExtendedUnicycle
 
