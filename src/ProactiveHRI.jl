@@ -14,6 +14,6 @@ include("plotting.jl")
 include("mpc.jl")
 include("sim.jl")
 
-import. SingleIntegrator2D, DoubleIntegrator2D, SingleIntegratorPolar2D, Unicycle, DynamicallyExtendedUnicycle
+import .SingleIntegrator2D, .DoubleIntegrator2D, .SingleIntegratorPolar2D, .Unicycle, .DynamicallyExtendedUnicycle
 
 end
