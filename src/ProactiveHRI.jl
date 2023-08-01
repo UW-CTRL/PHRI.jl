@@ -1,13 +1,15 @@
 module ProactiveHRI
 
 # Write your package code here.
-using .LinearAlgebra
-using .ForwardDiff
-using .Parameters
-using .JuMP, HiGHS, ECOS
-using .EllipsisNotation
-using .Parameters
-using .AngleBetweenVectors
+using LinearAlgebra
+using ForwardDiff
+using Parameters
+using JuMP, HiGHS, ECOS
+using EllipsisNotation
+using Parameters
+using AngleBetweenVectors
+
+import LinearAlgebra: diagm
 
 
 export SingleIntegrator2D, DoubleIntegrator2D, SingleIntegratorPolar2D, Unicycle, DynamicallyExtendedUnicycle
