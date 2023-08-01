@@ -2,7 +2,7 @@ module ProactiveHRI
 
 # Write your package code here.
 export Unicycle
-
+export dynamics.jl
 
 include("dynamics.jl")
 include("planner.jl")
