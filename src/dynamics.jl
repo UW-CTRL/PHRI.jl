@@ -256,5 +256,3 @@ get_velocity(dyn::Dynamics, states::Vector{Vector{T}}, controls::Vector{Vector{T
 get_speed(dyn::IntegratorDynamics, state::Vector{T}, control::Vector{T}) where {T<:NumberOrVariable} = norm(get_velocity(dyn, state, control))
 get_speed(dyn::Dynamics, states::Vector{Vector{T}}, controls::Vector{Vector{T}}) where {T<:NumberOrVariable} = get_speed.(Ref(dyn), states, controls)
 linearized_dynamics(dyn::Dynamics, states::Vector{Vector{T}}, controls::Vector{Vector{T}}) where {T<:NumberOrVariable} = linearized_dynamics.(Ref(dyn), states, controls)
-
-export Unicycle
