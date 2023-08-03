@@ -4,5 +4,5 @@ function mpc_step(ip::InteractionPlanner, ego_actual_state::Vector{T}, other_act
     _, _, ego_control = ibr_mpc(ip, ibr_iterations, leader)
     # MPC Step function that takes inputs of current ego state and current state of other agent
     # Returns optimal ego control 
-    return ego_control[1]
+    return ego_control[1,:]
 end
