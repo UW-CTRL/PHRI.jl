@@ -46,8 +46,8 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
     other_traj = Vector{Vector{Float64}}(undef, sim_horizon + 1)
     other_controls = Vector{Vector{Float64}}(undef, sim_horizon)
 
-    ego_traj[1] = ego_ip.ego_planner.incon.opt_params.previous_states[1]
-    other_traj[1] = other_ip.ego_planner.incon.opt_params.previous_states[1]
+    ego_traj[1] = ego_ip.ego_planner.incon.opt_params.initial_state
+    other_traj[1] = other_ip.ego_planner.incon.opt_params.initial_state
 
     # Uses MPC function to simulate to a given time horizon
     for i in 1:(sim_horizon)
@@ -55,7 +55,7 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
         ego_state = ego_traj[i]
         other_state = other_traj[i]
         # solve for the next iteration
-        ego_control = @time mpc_step(ego_ip, ego_state, other_state, ibr_iterations=ibr_iterations, leader=leader)
+        ego_control = mpc_step(ego_ip, ego_state, other_state, ibr_iterations=ibr_iterations, leader=leader)
         other_control = mpc_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
 
         ego_state = step(ego_dyn, ego_state, ego_control)
