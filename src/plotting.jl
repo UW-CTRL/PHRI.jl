@@ -420,13 +420,13 @@ function plot_solve_solution(problem::HITLSimData; pos_xlims=[-1,11], pos_ylims=
 
     # plotting position trajectory
     
-    plot_traj = scatter(ego_goal_state[1:1], ego_goal_state[2:2], size=(width, height), xlabel="x position", ylabel="y position", title="Position", margin=10mm, marker=:star, markersize=markersize_large, color=ego_color, ylims=pos_ylims, xlims=pos_xlims, aspect_ratio=:equal, label="ego goal")
-    scatter!(plot_traj, other_goal_state[1:1], other_goal_state[2:2], marker=:star, markersize=markersize_large, color=other_color, label="other goal")
+    plot_traj = scatter(ego_goal_state[1:1], ego_goal_state[2:2], size=(width, height), xlabel="x position", ylabel="y position", title="Position", margin=10mm, marker=:star, markersize=markersize_large, color=ego_color, ylims=pos_ylims, xlims=pos_xlims, aspect_ratio=:equal, label="Robot goal")
+    scatter!(plot_traj, other_goal_state[1:1], other_goal_state[2:2], marker=:star, markersize=markersize_large, color=other_color, label="Human goal")
 
-    plot!(plot_traj, ego_xs[:,1], ego_xs[:,2], color=ego_color, linewidth=linewidth, label="ego")
+    plot!(plot_traj, ego_xs[:,1], ego_xs[:,2], color=ego_color, linewidth=linewidth, label="Robot Path")
     # scatter!(plot_traj, ego_xs[:,1], ego_xs[:,2], color=ego_color, label="")
 
-    plot!(plot_traj, other_xs[:,1], other_xs[:,2], color=other_color, linewidth=linewidth, label="other")
+    plot!(plot_traj, other_xs[:,1], other_xs[:,2], color=other_color, linewidth=linewidth, label="Human Path")
     # scatter!(plot_traj, other_xs[:,1], other_xs[:,2], color=other_color, label="")
 
     plot_traj
