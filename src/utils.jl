@@ -8,17 +8,9 @@ struct PlannerParams
     opt_params::PlannerOptimizerParams
 end
 
-function PlannerParams(hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
-    PlannerParams(hps, opt_params)
-end
-
 struct HITLParams
     ego_planner_params::PlannerParams
     other_goal_state::Vector{Float64}
-end
-
-function HITLParams(ego_planner_params::PlannerParams, other_goal_state::Vector{Float64})
-    HITLParams(ego_planner_params, other_goal_state)
 end
 
 struct SFMParams
@@ -27,10 +19,6 @@ end
 struct IPSimParams
     ego_planner_params::PlannerParams
     other_planner_params::PlannerParams
-end
-
-function IPSimParams(ego_planner_params::PlannerParams, other_planner_params::PlannerParams)
-    IPSimParams(ego_planner_params, other_planner_params)
 end
 
 struct SFMSimParams
@@ -46,18 +34,10 @@ struct SimData
     other_controls::Matrix{Float64}
 end
 
-function SimData(sim_params, ego_states::Matrix{Float64}, ego_controls::Matrix{Float64}, other_states::Matrix{Float64}, other_controls::Matrix{Float64})
-    SimData(sim_params, ego_states, ego_controls, other_states, other_controls)
-end
-
 struct HITLSimData
     sim_params
     ego_states::Matrix{Float64}
     other_states::Matrix{Float64}
-end
-
-function HITLSimData(sim_params, ego_states::Matrix{Float64}, other_states::Matrix{Float64})
-    HITLSimData(sim_params, ego_states, other_states)
 end
 
 
