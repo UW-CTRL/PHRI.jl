@@ -8,6 +8,11 @@ struct PlannerParams
     opt_params::PlannerOptimizerParams
 end
 
+struct HITLParams
+    ego_planner_params::PlannerParams
+    other_goal_state::Vector{Float64}
+end
+
 struct SFMParams
 end
 
@@ -28,6 +33,13 @@ struct SimData
     other_states::Matrix{Float64}
     other_controls::Matrix{Float64}
 end
+
+struct HITLSimData
+    sim_params
+    ego_states::Matrix{Float64}
+    other_states::Matrix{Float64}
+end
+
 
 function mohrs_circle_states(dyn::DynamicallyExtendedUnicycle, initial_start_state::Vector{Float64}, initial_goal_state::Vector{Float64}, theta_resolution::T) where T<:Number
     list_entries = floor(Int, 2 * pi / theta_resolution)
