@@ -25,5 +25,6 @@ include("utils.jl")
 include("plotting.jl")
 include("mpc.jl")
 include("sim.jl")
+include("experiments.jl")
 
 end

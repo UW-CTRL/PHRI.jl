@@ -58,6 +58,7 @@ end
 
 function HITLSimData(sim_params, ego_states::Matrix{Float64}, other_states::Matrix{Float64})
     HITLSimData(sim_params, ego_states, other_states)
+end
 
 
 function mohrs_circle_states(dyn::DynamicallyExtendedUnicycle, initial_start_state::Vector{Float64}, initial_goal_state::Vector{Float64}, theta_resolution::T) where T<:Number
