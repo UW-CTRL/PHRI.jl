@@ -16,6 +16,7 @@ export SingleIntegrator2D, DoubleIntegrator2D, SingleIntegratorPolar2D, Unicycle
 export PlannerHyperparameters, PlannerOptimizerParams, InconvenienceProblem, IdealProblem, update_problem!, solve, InteractionPlanner, ibr, ibr_save, ibr_mpc
 export mpc_step, Sim
 export plot_solve_solution, animation, avoidance_animation
+export PlannerParams, HITLParams, IPSimParams, SimData, HITLSimData
 
 include("dynamics.jl")
 include("planner.jl")
