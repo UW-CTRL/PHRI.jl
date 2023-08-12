@@ -121,6 +121,97 @@ function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_
     plot(plot_traj, plot_ctrl, plot_speed, layout = l)
 end
 
+function plot_solve_solution(problem::InteractionPlanner, constant_velo_agent::ConstantVeloAgent; pos_xlims=[-1,8], pos_ylims=[-3, 3])
+
+    l = @layout [a b c] 
+    width=1500
+    height=500
+    alpha0 = 0.2
+    alpha_ideal = 0.4
+    linewidth = 2
+    markersize = 2
+    markersize_large = 7
+    ego_color = :blue
+    other_color = :red
+
+
+
+    ego_ideal = problem.ego_planner.ideal
+    ego_incon = problem.ego_planner.incon
+    other_ideal = problem.other_planner.ideal
+    other_incon = problem.other_planner.incon
+
+    ego_ideal_xs = value.(ego_ideal.model[:x])
+    ego_ideal_us = value.(ego_ideal.model[:u])
+    ego_incon_xs = vector_of_vectors_to_matrix(ego_incon.opt_params.previous_states)
+    ego_incon_us = value.(ego_incon.model[:u])
+
+    other_ideal_xs = value.(other_ideal.model[:x])
+    other_ideal_us = value.(other_ideal.model[:u])
+    other_incon_xs = vector_of_vectors_to_matrix(other_incon.opt_params.previous_states)
+    other_incon_us = vector_of_vectors_to_matrix(other_incon.opt_params.previous_controls)
+
+    ego_goal_state = ego_ideal.opt_params.goal_state
+    other_goal_state = other_ideal.opt_params.goal_state
+
+    constant_velo_agent_pos = vector_of_vectors_to_matrix(get_constant_velocity_agent_positions(ip.ego_planner.incon, constant_velo_agent))
+
+    # plotting position trajectory
+    
+    plot_traj = scatter(ego_goal_state[1:1], ego_goal_state[2:2], size=(width, height), xlabel="x position", ylabel="y position", title="Position", margin=10mm, marker=:star, markersize=markersize_large, color=ego_color, ylims=pos_ylims, xlims=pos_xlims, aspect_ratio=:equal, label="ego goal")
+    scatter!(plot_traj, other_goal_state[1:1], other_goal_state[2:2], marker=:star, markersize=markersize_large, color=other_color, label="other goal")
+    scatter!(plot_traj, constant_velo_agent_pos[end:end, 1], constant_velo_agent_pos[end:end, 2], marker=:star, markersize=markersize_large, color=:black, alpha=0.5)
+
+    plot!(plot_traj, ego_ideal_xs[:,1], ego_ideal_xs[:,2], color=ego_color, linewidth=linewidth, label="", alpha=alpha_ideal)
+    scatter!(plot_traj, ego_ideal_xs[:,1], ego_ideal_xs[:,2], color=ego_color, label="", alpha=alpha_ideal)
+    plot!(plot_traj, ego_incon_xs[:,1], ego_incon_xs[:,2], color=ego_color, linewidth=linewidth, label="ego")
+    scatter!(plot_traj, ego_incon_xs[:,1], ego_incon_xs[:,2], color=ego_color, label="")
+
+    plot!(plot_traj, other_ideal_xs[:,1], other_ideal_xs[:,2], color=other_color, linewidth=linewidth, label="", alpha=alpha_ideal)
+    scatter!(plot_traj, other_ideal_xs[:,1], other_ideal_xs[:,2], color=other_color, label="", alpha=alpha_ideal)
+    plot!(plot_traj, other_incon_xs[:,1], other_incon_xs[:,2], color=other_color, linewidth=linewidth, label="other")
+    scatter!(plot_traj, other_incon_xs[:,1], other_incon_xs[:,2], color=other_color, label="")
+
+    scatter!(plot_traj, constant_velo_agent_pos[:, 1], constant_velo_agent_pos[:, 2], label="Constant Velo Agent 1", color=:black, alpha=0.5)
+
+    # plotting speed
+
+    ego_dynamics = problem.ego_planner.ideal.hps.dynamics
+    other_dynamics = problem.other_planner.ideal.hps.dynamics
+    N = problem.ego_planner.ideal.hps.time_horizon
+
+    ego_ideal_speed = get_speed(ego_dynamics, ego_ideal_xs, ego_ideal_us)
+    ego_incon_speed = get_speed(ego_dynamics, ego_incon_xs, ego_incon_us)
+    other_ideal_speed = get_speed(other_dynamics, other_ideal_xs, other_ideal_us)
+    other_incon_speed = get_speed(other_dynamics, other_incon_xs, other_incon_us)
+
+    plot_speed = plot(size = (width, height), xlabel="time step", ylabel="Speed [m/s]", title="Speed", margin=5mm, ylim=[0, 3], legend=:bottomright)
+
+    plot!(plot_speed, ego_ideal_speed, color=:blue, linewidth=linewidth, label="ego ideal speed", alpha=alpha_ideal)
+    plot!(plot_speed, ego_incon_speed, color=:blue, linewidth=linewidth, label="ego incon speed")
+    plot!(plot_speed, other_ideal_speed, color=:magenta, linewidth=linewidth, label="other ideal speed", alpha=alpha_ideal)
+    plot!(plot_speed, other_incon_speed, color=:magenta, linewidth=linewidth, label="other incon speed")
+
+    plot!(plot_speed, 1:N+1, ego_dynamics.velocity_max * ones(Float64, N+1), linestyle=:dash, linewith=linewidth, color=:red, label="Max speed")
+    plot!(plot_speed, 1:N+1, ego_dynamics.velocity_min * ones(Float64, N+1), linestyle=:dash, linewith=linewidth, color=:green, label="Min speed")
+
+    plot_ctrl = plot()
+    
+    plot!(plot_ctrl, ego_ideal_us[:,1], color=:blue, linewidth=linewidth, label="ego ideal u₁", size = (width, height), xlabel="time step", ylabel="control input", title="Controls", margin=10mm, alpha=alpha_ideal)
+    plot!(plot_ctrl, ego_ideal_us[:,2], color=:red, linewidth=linewidth+2, label="ego ideal u₂", alpha=alpha_ideal)
+
+    plot!(plot_ctrl, ego_incon_us[:,1], color=:blue, linewidth=linewidth, label="ego incon u₁")
+    plot!(plot_ctrl, ego_incon_us[:,2], color=:red, linewidth=linewidth+2, label="ego incon u₂")
+
+    plot!(plot_ctrl, other_ideal_us[:,1], color=:purple, linewidth=linewidth, label="other ideal u₁", alpha=alpha_ideal)
+    plot!(plot_ctrl, other_ideal_us[:,2], color=:magenta, linewidth=linewidth+2, label="other ideal u₂", alpha=alpha_ideal)
+
+    plot!(plot_ctrl, other_incon_us[:,1], color=:purple, linewidth=linewidth, label="other incon u₁")
+    plot!(plot_ctrl, other_incon_us[:,2], color=:magenta, linewidth=linewidth+2, label="other incon u₂")
+
+    plot(plot_traj, plot_ctrl, plot_speed, layout = l)
+end
+
 # summary plots dependent on iterations
 
 function plot_solve_solution(problem::SaveData; pos_xlims=[-1,11], pos_ylims=[-6, 6], scatter=true::Bool, show_speed=true::Bool, show_control=true::Bool)

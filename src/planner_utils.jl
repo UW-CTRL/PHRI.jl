@@ -73,3 +73,34 @@ function update_convenience_budget!(problem::Problem)
 
     problem.opt_params.inconvenience_budget = convenience_value * (1 + problem.hps.inconvenience_ratio)
 end
+
+function add_constant_velocity_agent(problem::InconvenienceProblem, constant_velo_agent::ConstantVeloAgent)
+    opt_params = problem.opt_params
+    dyn = problem.hps.dynamics
+    N = problem.hps.time_horizon
+    dt = problem.hps.dynamics.dt
+    pos = constant_velo_agent.pos
+    velo_vector = constant_velo_agent.velo
+    model = problem.model
+
+    previous_states = opt_params.previous_states
+    ps = get_position(dyn, previous_states)
+
+    other_positions = get_constant_velocity_agent_positions(problem, constant_velo_agent)
+
+    Gs = linearize_collision_avoidance(ps, other_positions)
+    Hs = collision_avoidance_constraint(problem.hps.collision_radius, ps, other_positions) - dot.(Gs, ps)
+
+    for t in 1:N+1
+    model[Symbol("constant_velo_avoidance_agent_1_$(t)")] = @constraint(model, dot(Gs[t], ps[t]) + Hs[t] .>= -model[:ϵ], base_name="constant_velo_avoidance_agent_1_$(t)")
+    end      
+end
+
+function get_constant_velocity_agent_positions(problem::Problem, constant_velo_agent::ConstantVeloAgent)
+    N = problem.hps.time_horizon
+    dt = problem.hps.dynamics.dt
+    pos = constant_velo_agent.pos
+    velo_vector = constant_velo_agent.velo
+
+    positions = [pos + velo_vector * dt * i for i in 0:N]
+end
