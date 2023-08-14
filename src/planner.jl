@@ -747,3 +747,53 @@ function ibr_mpc(ip::InteractionPlanner, iterations::Int64, leader="ego"::String
     # ip, value.(ip.ego_planner.incon.xs), value.(ip.ego_planner.incon.us), value.(ip.ego_planner.incon.us)[1]
     ip, value.(ip.ego_planner.incon.model[:x]), value.(ip.ego_planner.incon.model[:u])
 end
+
+function ibr_mpc(ip::InteractionPlanner, constant_velo_agents::Vector{ConstantVeloAgent}, iterations::Int64, leader="ego"::String)
+    # ideal_path computation for ego and other
+    # update previous states and controls with ego's  ideal solution using initial straightline trajectory
+    ego_dyn = ip.ego_planner.ideal.hps.dynamics
+    ego_initial_state = ip.ego_planner.ideal.opt_params.initial_state
+    ego_goal_state = ip.ego_planner.ideal.opt_params.goal_state
+    ego_initial_speed = get_speed(ego_dyn, ego_initial_state, ip.ego_planner.ideal.opt_params.previous_controls[1])[1]
+    ip.ego_planner.ideal.opt_params.previous_states = matrix_to_vector_of_vectors(initial_straight_trajectory(ego_dyn, ego_initial_state, ego_goal_state, ego_initial_speed, ip.ego_planner.ideal.hps.time_horizon)[1])     # populates ego states and controls w/ straight line trajectory
+    # _, _= initial_straight_trajectory(ego_dyn, ego_initial_state, ego_goal_state, ego_initial_speed, ip.ego_planner.ideal.hps.time_horizon)     # populates ego states and controls w/
+    ip.ego_planner.ideal.opt_params.previous_controls = matrix_to_vector_of_vectors(initial_straight_trajectory(ego_dyn, ego_initial_state, ego_goal_state, ego_initial_speed, ip.ego_planner.ideal.hps.time_horizon)[2])
+
+
+    # update previous_states/controls for other agent w/ straight line trajectory from new initial state.
+    other_dyn = ip.other_planner.ideal.hps.dynamics
+    other_initial_state = ip.other_planner.ideal.opt_params.initial_state
+    other_goal_state = ip.other_planner.ideal.opt_params.goal_state
+    other_initial_speed = get_speed(other_dyn, other_initial_state, ip.other_planner.ideal.opt_params.previous_controls[1])[1]
+    ip.other_planner.ideal.opt_params.previous_states = matrix_to_vector_of_vectors(initial_straight_trajectory(other_dyn, other_initial_state, other_goal_state, other_initial_speed, ip.other_planner.ideal.hps.time_horizon)[1])     # populates other states and controls w/ straight line trajectory
+    # _, _= initial_straight_trajectory(other_dyn, other_initial_state, other_goal_state, other_initial_speed, ip.other_planner.ideal.hps.time_horizon)     # populates other states and controls w/
+    ip.other_planner.ideal.opt_params.previous_controls = matrix_to_vector_of_vectors(initial_straight_trajectory(other_dyn, other_initial_state, other_goal_state, other_initial_speed, ip.other_planner.ideal.hps.time_horizon)[2])
+
+
+
+    if leader != "ego"                       # determine which agent solves leader
+        leader_agent = ip.other_planner
+        follower_agent = ip.ego_planner
+    else
+        leader_agent = ip.ego_planner
+        follower_agent = ip.other_planner
+    end
+
+    solve(leader_agent.ideal, iterations=3)
+    solve(follower_agent.ideal, iterations=3)
+
+    for i in 1:iterations
+        
+        # linearize collision avoidance constraints
+        # linearize dynamics
+        # update JuMP model
+        # update previous state and controls with latest solution
+        leader_agent.incon.opt_params.other_positions = get_position(follower_agent.incon.hps.dynamics, follower_agent.incon.opt_params.previous_states)
+        solve(leader_agent.incon, constant_velo_agents, iterations=1)
+        follower_agent.incon.opt_params.other_positions = get_position(leader_agent.incon.hps.dynamics, leader_agent.incon.opt_params.previous_states)
+        solve(follower_agent.incon, constant_velo_agents, iterations=1)
+    end
+
+    # ip, value.(ip.ego_planner.incon.xs), value.(ip.ego_planner.incon.us), value.(ip.ego_planner.incon.us)[1]
+    ip, value.(ip.ego_planner.incon.model[:x]), value.(ip.ego_planner.incon.model[:u])
+end
