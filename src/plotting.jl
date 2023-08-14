@@ -121,7 +121,7 @@ function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_
     plot(plot_traj, plot_ctrl, plot_speed, layout = l)
 end
 
-function plot_solve_solution(problem::InteractionPlanner, constant_velo_agent::ConstantVeloAgent; pos_xlims=[-1,8], pos_ylims=[-3, 3])
+function plot_solve_solution(problem::InteractionPlanner, constant_velo_agents::ConstantVeloAgent...; pos_xlims=[-1,8], pos_ylims=[-3, 3])
 
     l = @layout [a b c] 
     width=1500
@@ -154,13 +154,17 @@ function plot_solve_solution(problem::InteractionPlanner, constant_velo_agent::C
     ego_goal_state = ego_ideal.opt_params.goal_state
     other_goal_state = other_ideal.opt_params.goal_state
 
-    constant_velo_agent_pos = vector_of_vectors_to_matrix(get_constant_velocity_agent_positions(ip.ego_planner.incon, constant_velo_agent))
+    N_velo_agents = length(constant_velo_agents)
+    constant_velo_agents_pos = Vector{Matrix{Float64}}(undef, N_velo_agents)
+
+    for i in 1:N_velo_agents
+        constant_velo_agents_pos[i] = vector_of_vectors_to_matrix(get_constant_velocity_agent_positions(ip.ego_planner.incon, constant_velo_agents[i]))
+    end
 
     # plotting position trajectory
     
     plot_traj = scatter(ego_goal_state[1:1], ego_goal_state[2:2], size=(width, height), xlabel="x position", ylabel="y position", title="Position", margin=10mm, marker=:star, markersize=markersize_large, color=ego_color, ylims=pos_ylims, xlims=pos_xlims, aspect_ratio=:equal, label="ego goal")
     scatter!(plot_traj, other_goal_state[1:1], other_goal_state[2:2], marker=:star, markersize=markersize_large, color=other_color, label="other goal")
-    scatter!(plot_traj, constant_velo_agent_pos[end:end, 1], constant_velo_agent_pos[end:end, 2], marker=:star, markersize=markersize_large, color=:black, alpha=0.5)
 
     plot!(plot_traj, ego_ideal_xs[:,1], ego_ideal_xs[:,2], color=ego_color, linewidth=linewidth, label="", alpha=alpha_ideal)
     scatter!(plot_traj, ego_ideal_xs[:,1], ego_ideal_xs[:,2], color=ego_color, label="", alpha=alpha_ideal)
@@ -172,7 +176,10 @@ function plot_solve_solution(problem::InteractionPlanner, constant_velo_agent::C
     plot!(plot_traj, other_incon_xs[:,1], other_incon_xs[:,2], color=other_color, linewidth=linewidth, label="other")
     scatter!(plot_traj, other_incon_xs[:,1], other_incon_xs[:,2], color=other_color, label="")
 
-    scatter!(plot_traj, constant_velo_agent_pos[:, 1], constant_velo_agent_pos[:, 2], label="Constant Velo Agent 1", color=:black, alpha=0.5)
+    for i in 1:N_velo_agents
+        scatter!(plot_traj, constant_velo_agents_pos[i][:, 1], constant_velo_agents_pos[i][:, 2], label="Constant Velo Agent $(i)", color=:black, alpha=0.5)
+        scatter!(plot_traj, constant_velo_agents_pos[i][end:end, 1], constant_velo_agents_pos[i][end:end, 2], marker=:star, markersize=markersize_large, color=:black, alpha=0.5, label="")
+    end
 
     # plotting speed
 
@@ -527,49 +534,6 @@ function animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3],
     return gif(a, fps=60)
 end
 
-function avoidance_animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
-    a = Animation()
-
-    linewidth = 3
-    alpha_ideal = 0.2
-    ego_color = :blue
-    other_color = :red
-
-    ego_ideal = ip.ego_planner.ideal
-    ego_incon = ip.ego_planner.incon
-    other_ideal = ip.other_planner.ideal
-    other_incon = ip.other_planner.incon
-
-    ego_ideal_xs = value.(ego_ideal.model[:x])
-    ego_incon_xs = vector_of_vectors_to_matrix(ego_incon.opt_params.previous_states)
-    other_ideal_xs = value.(other_ideal.model[:x])
-    other_incon_xs = vector_of_vectors_to_matrix(other_incon.opt_params.previous_states)
-
-    # plt = plot(xlim=pos_xlims, ylim=pos_ylims, xlabel="x position", ylabel="y position", title="Position Animation", arrow=true)
-    # plot!(plt, ego_incon_xs[1:1,1], ego_incon_xs[1:1,2], color=ego_color, linewidth=linewidth, lab="Robot")
-    # plot!(plt, other_incon_xs[1:1,1], other_incon_xs[1:1,2], color=other_color, linewidth=linewidth, lab="Human")
-
-
-    print(typeof(ip.ego_planner.ideal.hps.time_horizon))
-
-    for i in 1:ip.ego_planner.ideal.hps.time_horizon
-        # plot!(plt, ego_ideal_xs[1:i,1], ego_ideal_xs[1:i,2], color=:purple, linewidth=linewidth, lab="", alpha=alpha_ideal)
-        plt = plot(ego_incon_xs[1:i,1], ego_incon_xs[1:i,2], color=ego_color, linewidth=linewidth, lab="", xlim=pos_xlims, ylim=pos_ylims)
-        plot!(plt, [ego_incon_xs[i,1]], [ego_incon_xs[i,2]], marker=:circle, color=:red, markersize=25, lab="", alpha=i/250)
-        # plot!(plt, other_ideal_xs[1:i,1], other_ideal_xs[1:i,2], color=:magenta, linewidth=linewidth, lab="", alpha=alpha_ideal)
-        plot!(plt, other_incon_xs[1:i,1], other_incon_xs[1:i,2], color=other_color, linewidth=linewidth, lab="")
-        plot!(plt, [other_incon_xs[i,1]], [other_incon_xs[i,2]], marker=:circle, color=:red, markersize=25, lab="", alpha=i/250)
-
-        frame(a, plt)
-    end
-
-    if save_name != "none"
-        gif(a, "../animations/$save_name.gif", fps = 15) 
-    end 
-
-    return gif(a, fps=60)
-end 
-
 # animate function for MPC sim
 function animation(ego_path::Matrix{Float64}, other_path::Matrix{Float64}; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
     a = Animation()
@@ -599,3 +563,86 @@ function animation(ego_path::Matrix{Float64}, other_path::Matrix{Float64}; pos_x
 
     return gif(a, fps=60)
 end
+
+function animation(ip::InteractionPlanner, constant_velo_agents::ConstantVeloAgent...; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
+    a = Animation()
+
+    linewidth = 3
+    alpha_ideal = 0.2
+    ego_color = :blue
+    other_color = :red
+
+    ego_ideal = ip.ego_planner.ideal
+    ego_incon = ip.ego_planner.incon
+    other_ideal = ip.other_planner.ideal
+    other_incon = ip.other_planner.incon
+
+    ego_ideal_xs = value.(ego_ideal.model[:x])
+    ego_incon_xs = value.(ego_incon.model[:x])
+    other_ideal_xs = value.(other_ideal.model[:x])
+    other_incon_xs = value.(other_incon.model[:x])
+
+    N_velo_agents = length(constant_velo_agents)
+    constant_velo_agents_pos = Vector{Matrix{Float64}}(undef, N_velo_agents)
+    
+    for i in 1:N_velo_agents
+        constant_velo_agents_pos[i] = vector_of_vectors_to_matrix(get_constant_velocity_agent_positions(ip.ego_planner.incon, constant_velo_agents[i]))
+    end
+
+    plt = plot(xlim=pos_xlims, ylim=pos_ylims, xlabel="x position", ylabel="y position", title="Position Animation", arrow=true)
+    plot!(plt, ego_incon_xs[1:1,1], ego_incon_xs[1:1,2], color=ego_color, linewidth=linewidth, lab="Robot")
+    plot!(plt, other_incon_xs[1:1,1], other_incon_xs[1:1,2], color=other_color, linewidth=linewidth, lab="Human")
+
+    for i in 1:ip.ego_planner.ideal.hps.time_horizon
+        # plot!(plt, ego_ideal_xs[1:i,1], ego_ideal_xs[1:i,2], color=:purple, linewidth=linewidth, lab="", alpha=alpha_ideal)
+        plot!(plt, ego_incon_xs[1:i,1], ego_incon_xs[1:i,2], color=ego_color, linewidth=linewidth, lab="")
+        # plot!(plt, other_ideal_xs[1:i,1], other_ideal_xs[1:i,2], color=:magenta, linewidth=linewidth, lab="", alpha=alpha_ideal)
+        plot!(plt, other_incon_xs[1:i,1], other_incon_xs[1:i,2], color=other_color, linewidth=linewidth, lab="")
+        for j in 1:N_velo_agents
+            scatter!(plt, constant_velo_agents_pos[j][i:i, 1], constant_velo_agents_pos[j][i:i, 2], label="", color=:black, alpha=0.3)
+        end
+        frame(a, plt)
+    end
+
+    if save_name != "none"
+        gif(a, "../animations/$save_name.gif", fps = 15) 
+    end 
+
+    return gif(a, fps=60)
+end
+
+function avoidance_animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
+    a = Animation()
+
+    linewidth = 3
+    alpha_ideal = 0.2
+    ego_color = :blue
+    other_color = :red
+
+    ego_ideal = ip.ego_planner.ideal
+    ego_incon = ip.ego_planner.incon
+    other_ideal = ip.other_planner.ideal
+    other_incon = ip.other_planner.incon
+
+    ego_ideal_xs = value.(ego_ideal.model[:x])
+    ego_incon_xs = vector_of_vectors_to_matrix(ego_incon.opt_params.previous_states)
+    other_ideal_xs = value.(other_ideal.model[:x])
+    other_incon_xs = vector_of_vectors_to_matrix(other_incon.opt_params.previous_states)
+
+    for i in 1:ip.ego_planner.ideal.hps.time_horizon
+        # plot!(plt, ego_ideal_xs[1:i,1], ego_ideal_xs[1:i,2], color=:purple, linewidth=linewidth, lab="", alpha=alpha_ideal)
+        plt = plot(ego_incon_xs[1:i,1], ego_incon_xs[1:i,2], color=ego_color, linewidth=linewidth, lab="", xlim=pos_xlims, ylim=pos_ylims)
+        plot!(plt, [ego_incon_xs[i,1]], [ego_incon_xs[i,2]], marker=:circle, color=:red, markersize=25, lab="", alpha=i/250)
+        # plot!(plt, other_ideal_xs[1:i,1], other_ideal_xs[1:i,2], color=:magenta, linewidth=linewidth, lab="", alpha=alpha_ideal)
+        plot!(plt, other_incon_xs[1:i,1], other_incon_xs[1:i,2], color=other_color, linewidth=linewidth, lab="")
+        plot!(plt, [other_incon_xs[i,1]], [other_incon_xs[i,2]], marker=:circle, color=:red, markersize=25, lab="", alpha=i/250)
+
+        frame(a, plt)
+    end
+
+    if save_name != "none"
+        gif(a, "../animations/$save_name.gif", fps = 15) 
+    end 
+
+    return gif(a, fps=60)
+end 
