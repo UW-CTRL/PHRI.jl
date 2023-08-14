@@ -569,7 +569,40 @@ function plot_solve_solution(problem::SimData, constant_velo_agents::ConstantVel
     plot(plot_traj, plot_ctrl, plot_speed, layout = l)
 end
 
+function plot_solve_solution(problem::HITLSimData; pos_xlims=[-1,11], pos_ylims=[-6, 6])
 
+    l = @layout [a b c] 
+    width=500
+    height=500
+    alpha0 = 0.2
+    alpha_ideal = 0.4
+    linewidth = 2
+    markersize = 2
+    markersize_large = 7
+    ego_color = :blue
+    other_color = :red
+
+    ego_xs = problem.ego_states
+
+    other_xs = problem.other_states
+
+    ego_goal_state = problem.sim_params.ego_planner_params.opt_params.goal_state
+    other_goal_state = problem.sim_params.other_goal_state
+
+    # plotting position trajectory
+    
+    plot_traj = scatter(ego_goal_state[1:1], ego_goal_state[2:2], size=(width, height), xlabel="x position", ylabel="y position", title="Position", margin=10mm, marker=:star, markersize=markersize_large, color=ego_color, ylims=pos_ylims, xlims=pos_xlims, aspect_ratio=:equal, label="Robot goal")
+    scatter!(plot_traj, other_goal_state[1:1], other_goal_state[2:2], marker=:star, markersize=markersize_large, color=other_color, label="Human goal")
+
+    plot!(plot_traj, ego_xs[:,1], ego_xs[:,2], color=ego_color, linewidth=linewidth, label="Robot Path")
+    # scatter!(plot_traj, ego_xs[:,1], ego_xs[:,2], color=ego_color, label="")
+
+    plot!(plot_traj, other_xs[:,1], other_xs[:,2], color=other_color, linewidth=linewidth, label="Human Path")
+    # scatter!(plot_traj, other_xs[:,1], other_xs[:,2], color=other_color, label="")
+
+    plot_traj
+end
+          
 function animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
     a = Animation()
 
