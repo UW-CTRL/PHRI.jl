@@ -24,6 +24,11 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
         ego_control = mpc_step(ego_ip, ego_state, other_state, ibr_iterations=ibr_iterations, leader=leader)
         other_control = mpc_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
 
+        ego_ip.ego_planner.incon.model[:ϵ] = 0.
+        ego_ip.other_planner.incon.model[:ϵ] = 0.
+        other_ip.ego_planner.incon.model[:ϵ] = 0.
+        other_ip.other_planner.incon.model[:ϵ] = 0.
+
         ego_state = step(ego_dyn, ego_state, ego_control)
         other_state = step(other_dyn, other_state, other_control)
 
@@ -69,6 +74,11 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
         # solve for the next iteration
         ego_control = mpc_step(ego_ip, ego_state, other_state, ibr_iterations=ibr_iterations, leader=leader)
         other_control = mpc_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
+
+        ego_ip.ego_planner.incon.model[:ϵ] = 0.
+        ego_ip.other_planner.incon.model[:ϵ] = 0.
+        other_ip.ego_planner.incon.model[:ϵ] = 0.
+        other_ip.other_planner.incon.model[:ϵ] = 0.
 
         ego_state = step(ego_dyn, ego_state, ego_control)
         other_state = step(other_dyn, other_state, other_control)
