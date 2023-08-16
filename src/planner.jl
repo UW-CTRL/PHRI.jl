@@ -5,6 +5,10 @@ using JuMP, HiGHS, ECOS
 
 NumberOrVariable = Union{Number, VariableRef}
 
+mutable struct ConstantVeloAgent
+    pos::Vector{Float64}
+    velo::Vector{Float64}
+end
 
 # hyperparameters of a planning problem (both inconvenience and ideal)
 @with_kw mutable struct PlannerHyperparameters{T}
@@ -375,6 +379,57 @@ function update_problem!(problem::InconvenienceProblem)
     model[:inconvenience_budget] = @constraint(model, compute_convenience_value(problem.hps.dynamics, xs, us, opt_params.goal_state, hps.inconvenience_weights) <= opt_params.inconvenience_budget, base_name="inconvenience_budget")
 end
 
+function update_problem!(problem::InconvenienceProblem, constant_velo_agents::Vector{ConstantVeloAgent})
+    model = problem.model
+    hps = problem.hps
+    opt_params = problem.opt_params
+    n = hps.dynamics.state_dim
+    m = hps.dynamics.ctrl_dim
+    N = hps.time_horizon
+    xs = matrix_to_vector_of_vectors(model[:x])
+    us = matrix_to_vector_of_vectors(model[:u])
+    ps = matrix_to_vector_of_vectors(get_position(hps.dynamics, model[:x]))
+    ego_ps = get_position(hps.dynamics, opt_params.previous_states)
+    N_velo_agents = length(constant_velo_agents)
+
+    constant_velo_pos = Vector{Vector}(undef, N_velo_agents)
+    constant_velo_Gs = Vector{Vector}(undef, N_velo_agents)
+    constant_velo_Hs = Vector{Vector}(undef, N_velo_agents)
+
+    for i in 1:N_velo_agents
+        constant_velo_pos[i] = get_constant_velocity_agent_positions(problem, constant_velo_agents[i])
+        constant_velo_Gs[i] = linearize_collision_avoidance(ego_ps, constant_velo_pos[i])
+        constant_velo_Hs[i] = collision_avoidance_constraint(problem.hps.collision_radius, ego_ps, constant_velo_pos[i]) - dot.(constant_velo_Gs[i], ego_ps)
+    end
+
+    delete_and_unregister(model, :initial_state)
+    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
+
+    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + hps.collision_slack * model[:ϵ]^2)
+
+    # update dynamics constraints
+    for (t, (A,B,C)) in enumerate(zip(opt_params.As, opt_params.Bs, opt_params.Cs))
+        delete_and_unregister(model, Symbol("linear_dynamics_constraint_$(t)"))
+        model[Symbol("linear_dynamics_constraint_$(t)")] = @constraint(model, A*xs[t] + B*us[t] + C == xs[t+1], base_name="linear_dynamics_constraint_$(t)")
+    end
+
+    # update collision avoidance constraints
+    for (t, (G, H)) in enumerate(zip(opt_params.Gs, opt_params.Hs))
+        delete_and_unregister(model, Symbol("collision_avoidance_constraint_$(t)"))
+        for i in 1:N_velo_agents
+            delete_and_unregister(model, Symbol("constant_velo_avoidance_agent_$(i)_$(t)"))
+            model[Symbol("constant_velo_avoidance_agent_$(i)_$(t)")] = @constraint(model, dot(constant_velo_Gs[i][t], ego_ps[t]) + constant_velo_Hs[i][t] .>= -model[:ϵ], base_name="constant_velo_avoidance_agent_$(i)_$(t)")
+        end
+        model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t]  .>= -model[:ϵ], base_name="collision_avoidance_constraint_$(t)")
+
+    end
+
+    # update inconvenience budget constraint
+    # set_normalized_rhs(model[:inconvenience_budget], opt_params.inconvenience_budget)     # this had issues
+    delete_and_unregister(model, :inconvenience_budget)
+    model[:inconvenience_budget] = @constraint(model, compute_convenience_value(problem.hps.dynamics, xs, us, opt_params.goal_state, hps.inconvenience_weights) <= opt_params.inconvenience_budget, base_name="inconvenience_budget")
+end
+
 function solve(problem::IdealProblem; iterations=5, verbose=false, keep_history=false)
     MOI.set(problem.model, MOI.Silent(), !verbose)
     if keep_history
@@ -427,6 +482,30 @@ function solve(problem::InconvenienceProblem; iterations=5, verbose=false, keep_
         return problem, xs, us
     end
     return problem, [value.(problem.model[:x])], [value.(problem.model[:u])]
+end
+
+function solve(problem::InconvenienceProblem, constant_velo_agents::Vector{ConstantVeloAgent}; iterations=5, verbose=false, keep_history=false)
+    MOI.set(problem.model, MOI.Silent(), !verbose)
+    if keep_history
+        xs = []
+        us = []
+    end
+    for i in 1:iterations
+        update_dynamics_linearization!(problem)
+        update_collision_constraint_linearization!(problem)
+        update_problem!(problem, constant_velo_agents)
+        MOI.set(problem.model, MOI.Silent(), !verbose)
+        optimize!(problem.model);
+        problem.opt_params.previous_states = matrix_to_vector_of_vectors(value.(problem.model[:x]))
+        problem.opt_params.previous_controls = matrix_to_vector_of_vectors(value.(problem.model[:u]))
+        if keep_history
+            push!(xs, value.(problem.model[:x]))
+            push!(us, value.(problem.model[:u]))
+        end
+    end
+    if keep_history
+        return problem, xs, us
+    end
 end
 
 mutable struct AgentPlanner <: Planner
@@ -542,6 +621,36 @@ function ibr(ip::InteractionPlanner, iterations::Int64, leader="ego"::String)
     ip
 end
 
+function ibr(ip::InteractionPlanner, iterations::Int64, leader="ego"::String, constant_velo_agents::ConstantVeloAgent...)
+    if leader != "ego"                       # determine which agent solves leader
+        leader_agent = ip.other_planner
+        follower_agent = ip.ego_planner
+    else
+        leader_agent = ip.ego_planner
+        follower_agent = ip.other_planner
+    end
+
+    velo_agents = collect(constant_velo_agents)
+
+    # ideal_path computation for ego and other
+    # opt_params.inconvenience_budget for ego and other
+
+    for i in 1:iterations
+        
+        # linearize collision avoidance constraints
+        # linearize dynamics
+        # update JuMP model
+        # update previous state and controls with latest solution
+        leader_agent.incon.opt_params.other_positions = get_position(follower_agent.incon.hps.dynamics, follower_agent.incon.opt_params.previous_states)
+        solve(leader_agent.incon, velo_agents, iterations=1)
+        follower_agent.incon.opt_params.other_positions = get_position(leader_agent.incon.hps.dynamics, leader_agent.incon.opt_params.previous_states)
+        solve(follower_agent.incon, velo_agents, iterations=1)
+    end
+
+    # ip, value.(ip.ego_planner.incon.xs), value.(ip.ego_planner.incon.us), value.(ip.ego_planner.incon.us)[1]
+    ip
+end
+
 @with_kw mutable struct SaveData
     previous_ips::Vector{InteractionPlanner}
 end
@@ -633,6 +742,56 @@ function ibr_mpc(ip::InteractionPlanner, iterations::Int64, leader="ego"::String
         solve(leader_agent.incon, iterations=1)
         follower_agent.incon.opt_params.other_positions = get_position(leader_agent.incon.hps.dynamics, leader_agent.incon.opt_params.previous_states)
         solve(follower_agent.incon, iterations=1)
+    end
+
+    # ip, value.(ip.ego_planner.incon.xs), value.(ip.ego_planner.incon.us), value.(ip.ego_planner.incon.us)[1]
+    ip, value.(ip.ego_planner.incon.model[:x]), value.(ip.ego_planner.incon.model[:u])
+end
+
+function ibr_mpc(ip::InteractionPlanner, constant_velo_agents::Vector{ConstantVeloAgent}, iterations::Int64, leader="ego"::String)
+    # ideal_path computation for ego and other
+    # update previous states and controls with ego's  ideal solution using initial straightline trajectory
+    ego_dyn = ip.ego_planner.ideal.hps.dynamics
+    ego_initial_state = ip.ego_planner.ideal.opt_params.initial_state
+    ego_goal_state = ip.ego_planner.ideal.opt_params.goal_state
+    ego_initial_speed = get_speed(ego_dyn, ego_initial_state, ip.ego_planner.ideal.opt_params.previous_controls[1])[1]
+    ip.ego_planner.ideal.opt_params.previous_states = matrix_to_vector_of_vectors(initial_straight_trajectory(ego_dyn, ego_initial_state, ego_goal_state, ego_initial_speed, ip.ego_planner.ideal.hps.time_horizon)[1])     # populates ego states and controls w/ straight line trajectory
+    # _, _= initial_straight_trajectory(ego_dyn, ego_initial_state, ego_goal_state, ego_initial_speed, ip.ego_planner.ideal.hps.time_horizon)     # populates ego states and controls w/
+    ip.ego_planner.ideal.opt_params.previous_controls = matrix_to_vector_of_vectors(initial_straight_trajectory(ego_dyn, ego_initial_state, ego_goal_state, ego_initial_speed, ip.ego_planner.ideal.hps.time_horizon)[2])
+
+
+    # update previous_states/controls for other agent w/ straight line trajectory from new initial state.
+    other_dyn = ip.other_planner.ideal.hps.dynamics
+    other_initial_state = ip.other_planner.ideal.opt_params.initial_state
+    other_goal_state = ip.other_planner.ideal.opt_params.goal_state
+    other_initial_speed = get_speed(other_dyn, other_initial_state, ip.other_planner.ideal.opt_params.previous_controls[1])[1]
+    ip.other_planner.ideal.opt_params.previous_states = matrix_to_vector_of_vectors(initial_straight_trajectory(other_dyn, other_initial_state, other_goal_state, other_initial_speed, ip.other_planner.ideal.hps.time_horizon)[1])     # populates other states and controls w/ straight line trajectory
+    # _, _= initial_straight_trajectory(other_dyn, other_initial_state, other_goal_state, other_initial_speed, ip.other_planner.ideal.hps.time_horizon)     # populates other states and controls w/
+    ip.other_planner.ideal.opt_params.previous_controls = matrix_to_vector_of_vectors(initial_straight_trajectory(other_dyn, other_initial_state, other_goal_state, other_initial_speed, ip.other_planner.ideal.hps.time_horizon)[2])
+
+
+
+    if leader != "ego"                       # determine which agent solves leader
+        leader_agent = ip.other_planner
+        follower_agent = ip.ego_planner
+    else
+        leader_agent = ip.ego_planner
+        follower_agent = ip.other_planner
+    end
+
+    solve(leader_agent.ideal, iterations=3)
+    solve(follower_agent.ideal, iterations=3)
+
+    for i in 1:iterations
+        
+        # linearize collision avoidance constraints
+        # linearize dynamics
+        # update JuMP model
+        # update previous state and controls with latest solution
+        leader_agent.incon.opt_params.other_positions = get_position(follower_agent.incon.hps.dynamics, follower_agent.incon.opt_params.previous_states)
+        solve(leader_agent.incon, constant_velo_agents, iterations=1)
+        follower_agent.incon.opt_params.other_positions = get_position(leader_agent.incon.hps.dynamics, leader_agent.incon.opt_params.previous_states)
+        solve(follower_agent.incon, constant_velo_agents, iterations=1)
     end
 
     # ip, value.(ip.ego_planner.incon.xs), value.(ip.ego_planner.incon.us), value.(ip.ego_planner.incon.us)[1]
