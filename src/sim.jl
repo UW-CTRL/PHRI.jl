@@ -24,11 +24,6 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
         ego_control = mpc_step(ego_ip, ego_state, other_state, ibr_iterations=ibr_iterations, leader=leader)
         other_control = mpc_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
 
-        ego_ip.ego_planner.incon.model[:ϵ] = 0.
-        ego_ip.other_planner.incon.model[:ϵ] = 0.
-        other_ip.ego_planner.incon.model[:ϵ] = 0.
-        other_ip.other_planner.incon.model[:ϵ] = 0.
-
         ego_state = step(ego_dyn, ego_state, ego_control)
         other_state = step(other_dyn, other_state, other_control)
 
@@ -55,6 +50,10 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
     ego_dyn = ego_ip.ego_planner.incon.hps.dynamics
     other_dyn = other_ip.ego_planner.incon.hps.dynamics
 
+    velo_agents = collect(constant_velo_agents)
+
+    dt = ego_ip.ego_planner.incon.hps.dynamics.dt
+
     ego_traj = Vector{Vector{Float64}}(undef, sim_horizon + 1)
     ego_controls = Vector{Vector{Float64}}(undef, sim_horizon)
     other_traj = Vector{Vector{Float64}}(undef, sim_horizon + 1)
@@ -72,18 +71,14 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
         ego_state = ego_traj[i]
         other_state = other_traj[i]
         # solve for the next iteration
-        ego_control = mpc_step(ego_ip, ego_state, other_state, ibr_iterations=ibr_iterations, leader=leader)
-        other_control = mpc_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
 
-        ego_ip.ego_planner.incon.model[:ϵ] = 0.
-        ego_ip.other_planner.incon.model[:ϵ] = 0.
-        other_ip.ego_planner.incon.model[:ϵ] = 0.
-        other_ip.other_planner.incon.model[:ϵ] = 0.
+        ego_control = mpc_step(ego_ip, ego_state, other_state, velo_agents, ibr_iterations=ibr_iterations, leader=leader)
+        other_control = mpc_step(other_ip, other_state, ego_state, velo_agents, ibr_iterations=ibr_iterations, leader=leader)
 
         ego_state = step(ego_dyn, ego_state, ego_control)
         other_state = step(other_dyn, other_state, other_control)
         for j in 1:N_velo_agents
-            copied_constant_velo_agents[j].pos .+= copied_constant_velo_agents[j].velo
+            copied_constant_velo_agents[j].pos .+= copied_constant_velo_agents[j].velo * dt
         end
 
         ego_traj[i+1] = ego_state

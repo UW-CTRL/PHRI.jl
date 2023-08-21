@@ -110,3 +110,11 @@ function get_constant_velocity_agent_positions(problem::Problem, constant_velo_a
 
     positions = [pos + velo_vector * dt * i for i in 0:N]
 end
+
+function get_constant_velocity_agent_positions(time_horizon, dt, constant_velo_agent::ConstantVeloAgent)
+    N = time_horizon
+    pos = constant_velo_agent.pos
+    velo_vector = constant_velo_agent.velo
+
+    positions = [pos + velo_vector * dt * i for i in 0:N]
+end
