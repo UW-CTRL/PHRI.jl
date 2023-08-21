@@ -34,8 +34,7 @@ function plot_solve_solution(problem::Problem; pos_xlims=[-1,8], pos_ylims=[-3, 
     plot(plot_traj, plot_speed, plot_ctrl, layout = l)
 end
 
-
-function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_ylims=[-3, 3])
+function plot_solve_solution(problem::InteractionPlanner; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1,8], pos_ylims=[-3, 3])
 
     l = @layout [a b c] 
     width=1500
@@ -47,8 +46,6 @@ function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_
     markersize_large = 7
     ego_color = :blue
     other_color = :red
-
-
 
     ego_ideal = problem.ego_planner.ideal
     ego_incon = problem.ego_planner.incon
@@ -82,6 +79,19 @@ function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_
     scatter!(plot_traj, other_ideal_xs[:,1], other_ideal_xs[:,2], color=other_color, label="", alpha=alpha_ideal)
     plot!(plot_traj, other_incon_xs[:,1], other_incon_xs[:,2], color=other_color, linewidth=linewidth, label="other")
     scatter!(plot_traj, other_incon_xs[:,1], other_incon_xs[:,2], color=other_color, label="")
+
+    if walls !== nothing
+        N_walls = length(walls)
+        for i in 1:N_walls
+            if walls[i].variable == "x"
+                range = pos_ylims[1]:pos_ylims[2]
+                plot!(plot_traj, walls[i].m .* (range) .+ walls[i].b, range, color=:black, linewidth=15, label="")
+            elseif walls[i].variable == "y"
+                range = pos_xlims[1]:pos_xlims[2]
+                plot!(plot_traj, range, walls[i].m .* (range) .+ walls[i].b, color=:black, linewidth=15, label="")
+            end
+        end
+    end
 
     # plotting speed
 
@@ -121,7 +131,7 @@ function plot_solve_solution(problem::InteractionPlanner; pos_xlims=[-1,8], pos_
     plot(plot_traj, plot_ctrl, plot_speed, layout = l)
 end
 
-function plot_solve_solution(problem::InteractionPlanner, constant_velo_agents::ConstantVeloAgent...; pos_xlims=[-1,8], pos_ylims=[-3, 3])
+function plot_solve_solution(problem::InteractionPlanner, constant_velo_agents::ConstantVeloAgent...; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1,8], pos_ylims=[-3, 3])
 
     l = @layout [a b c] 
     width=1500
@@ -133,8 +143,6 @@ function plot_solve_solution(problem::InteractionPlanner, constant_velo_agents::
     markersize_large = 7
     ego_color = :blue
     other_color = :red
-
-
 
     ego_ideal = problem.ego_planner.ideal
     ego_incon = problem.ego_planner.incon
@@ -181,8 +189,20 @@ function plot_solve_solution(problem::InteractionPlanner, constant_velo_agents::
         scatter!(plot_traj, constant_velo_agents_pos[i][end:end, 1], constant_velo_agents_pos[i][end:end, 2], marker=:star, markersize=markersize_large, color=:black, alpha=0.5, label="")
     end
 
-    # plotting speed
+    if walls !== nothing
+        N_walls = length(walls)
+        for i in 1:N_walls
+            if walls[i].variable == "x"
+                range = pos_ylims[1]:pos_ylims[2]
+                plot!(plot_traj, walls[i].m .* (range) .+ walls[i].b, range, color=:black, linewidth=15, label="")
+            elseif walls[i].variable == "y"
+                range = pos_xlims[1]:pos_xlims[2]
+                plot!(plot_traj, range, walls[i].m .* (range) .+ walls[i].b, color=:black, linewidth=15, label="")
+            end
+        end
+    end
 
+    # plotting speed
     ego_dynamics = problem.ego_planner.ideal.hps.dynamics
     other_dynamics = problem.other_planner.ideal.hps.dynamics
     N = problem.ego_planner.ideal.hps.time_horizon
@@ -218,10 +238,9 @@ function plot_solve_solution(problem::InteractionPlanner, constant_velo_agents::
 
     plot(plot_traj, plot_ctrl, plot_speed, layout = l)
 end
-
 # summary plots dependent on iterations
 
-function plot_solve_solution(problem::SaveData; pos_xlims=[-1,11], pos_ylims=[-6, 6], scatter=true::Bool, show_speed=true::Bool, show_control=true::Bool)
+function plot_solve_solution(problem::SaveData; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1,11], pos_ylims=[-6, 6], scatter=true::Bool, show_speed=true::Bool, show_control=true::Bool)
 
     l = @layout [a b c d e] 
     width=2000
@@ -269,6 +288,19 @@ function plot_solve_solution(problem::SaveData; pos_xlims=[-1,11], pos_ylims=[-6
             scatter!(plot_traj, vector_of_vectors_to_matrix(problem.previous_ips[i].ego_planner.incon.opt_params.previous_states)[:,1], vector_of_vectors_to_matrix(problem.previous_ips[i].ego_planner.incon.opt_params.previous_states)[:,2], color=ego_color, label="", alpha=(i * alpha_ratio))
 
             scatter!(plot_traj, vector_of_vectors_to_matrix(problem.previous_ips[i].other_planner.incon.opt_params.previous_states)[:,1], vector_of_vectors_to_matrix(problem.previous_ips[i].other_planner.incon.opt_params.previous_states)[:,2], color=other_color, label="", alpha=(i * alpha_ratio))
+        end
+    end
+
+    if walls !== nothing
+        N_walls = length(walls)
+        for i in 1:N_walls
+            if walls[i].variable == "x"
+                range = pos_ylims[1]:pos_ylims[2]
+                plot!(plot_traj, walls[i].m .* (range) .+ walls[i].b, range, color=:black, linewidth=15, label="")
+            elseif walls[i].variable == "y"
+                range = pos_xlims[1]:pos_xlims[2]
+                plot!(plot_traj, range, walls[i].m .* (range) .+ walls[i].b, color=:black, linewidth=15, label="")
+            end
         end
     end
 
@@ -435,7 +467,7 @@ function plot_solve_solution(problem::SaveData; pos_xlims=[-1,11], pos_ylims=[-6
 end
 
 # plotting from the SimData object
-function plot_solve_solution(problem::SimData; pos_xlims=[-1,11], pos_ylims=[-6, 6])
+function plot_solve_solution(problem::SimData; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1,11], pos_ylims=[-6, 6])
 
     l = @layout [a b c] 
     width=1500
@@ -468,6 +500,19 @@ function plot_solve_solution(problem::SimData; pos_xlims=[-1,11], pos_ylims=[-6,
     plot!(plot_traj, other_xs[:,1], other_xs[:,2], color=other_color, linewidth=linewidth, label="other")
     scatter!(plot_traj, other_xs[:,1], other_xs[:,2], color=other_color, label="")
 
+    if walls !== nothing
+        N_walls = length(walls)
+        for i in 1:N_walls
+            if walls[i].variable == "x"
+                range = pos_ylims[1]:pos_ylims[2]
+                plot!(plot_traj, walls[i].m .* (range) .+ walls[i].b, range, color=:black, linewidth=15, label="")
+            elseif walls[i].variable == "y"
+                range = pos_xlims[1]:pos_xlims[2]
+                plot!(plot_traj, range, walls[i].m .* (range) .+ walls[i].b, color=:black, linewidth=15, label="")
+            end
+        end
+    end
+
     # plotting speed
 
     ego_dynamics = problem.sim_params.ego_planner_params.hps.dynamics
@@ -496,7 +541,7 @@ function plot_solve_solution(problem::SimData; pos_xlims=[-1,11], pos_ylims=[-6,
     plot(plot_traj, plot_ctrl, plot_speed, layout = l)
 end
 
-function plot_solve_solution(problem::SimData, constant_velo_agents::ConstantVeloAgent...; pos_xlims=[-1,11], pos_ylims=[-6, 6])
+function plot_solve_solution(problem::SimData, constant_velo_agents::ConstantVeloAgent...; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1,11], pos_ylims=[-6, 6])
 
     l = @layout [a b c] 
     width=1500
@@ -541,6 +586,19 @@ function plot_solve_solution(problem::SimData, constant_velo_agents::ConstantVel
         scatter!(plot_traj, constant_velo_agents_pos[i][end:end, 1], constant_velo_agents_pos[i][end:end, 2], marker=:star, markersize=markersize_large, color=:black, alpha=0.5, label="")
     end
 
+    if walls !== nothing
+        N_walls = length(walls)
+        for i in 1:N_walls
+            if walls[i].variable == "x"
+                range = pos_ylims[1]:pos_ylims[2]
+                plot!(plot_traj, walls[i].m .* (range) .+ walls[i].b, range, color=:black, linewidth=15, label="")
+            elseif walls[i].variable == "y"
+                range = pos_xlims[1]:pos_xlims[2]
+                plot!(plot_traj, range, walls[i].m .* (range) .+ walls[i].b, color=:black, linewidth=15, label="")
+            end
+        end
+    end
+
     # plotting speed
 
     ego_dynamics = problem.sim_params.ego_planner_params.hps.dynamics
@@ -569,7 +627,7 @@ function plot_solve_solution(problem::SimData, constant_velo_agents::ConstantVel
     plot(plot_traj, plot_ctrl, plot_speed, layout = l)
 end
 
-function plot_solve_solution(problem::HITLSimData; pos_xlims=[-1,11], pos_ylims=[-6, 6])
+function plot_solve_solution(problem::HITLSimData; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1,11], pos_ylims=[-6, 6])
 
     l = @layout [a b c] 
     width=500
@@ -600,10 +658,23 @@ function plot_solve_solution(problem::HITLSimData; pos_xlims=[-1,11], pos_ylims=
     plot!(plot_traj, other_xs[:,1], other_xs[:,2], color=other_color, linewidth=linewidth, label="Human Path")
     # scatter!(plot_traj, other_xs[:,1], other_xs[:,2], color=other_color, label="")
 
+    if walls !== nothing
+        N_walls = length(walls)
+        for i in 1:N_walls
+            if walls[i].variable == "x"
+                range = pos_ylims[1]:pos_ylims[2]
+                plot!(plot_traj, walls[i].m .* (range) .+ walls[i].b, range, color=:black, linewidth=15, label="")
+            elseif walls[i].variable == "y"
+                range = pos_xlims[1]:pos_xlims[2]
+                plot!(plot_traj, range, walls[i].m .* (range) .+ walls[i].b, color=:black, linewidth=15, label="")
+            end
+        end
+    end
+
     plot_traj
 end
           
-function animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
+function animation(ip::InteractionPlanner; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
     a = Animation()
 
     linewidth = 3
@@ -633,6 +704,19 @@ function animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3],
         frame(a, plt)
     end
 
+    if walls !== nothing
+        N_walls = length(walls)
+        for i in 1:N_walls
+            if walls[i].variable == "x"
+                range = pos_ylims[1]:pos_ylims[2]
+                plot!(plt, walls[i].m .* (range) .+ walls[i].b, range, color=:black, linewidth=15, label="")
+            elseif walls[i].variable == "y"
+                range = pos_xlims[1]:pos_xlims[2]
+                plot!(plt, range, walls[i].m .* (range) .+ walls[i].b, color=:black, linewidth=15, label="")
+            end
+        end
+    end
+
     if save_name != "none"
         gif(a, "../animations/$save_name.gif", fps = 15) 
     end 
@@ -641,7 +725,7 @@ function animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3],
 end
 
 # animate function for MPC sim
-function animation(ego_path::Matrix{Float64}, other_path::Matrix{Float64}; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
+function animation(ego_path::Matrix{Float64}, other_path::Matrix{Float64}; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
     a = Animation()
 
     linewidth = 3
@@ -654,6 +738,18 @@ function animation(ego_path::Matrix{Float64}, other_path::Matrix{Float64}; pos_x
 
     plt = plot(xlim=pos_xlims, ylim=pos_ylims, xlabel="x position", ylabel="y position", title="Position Animation", arrow=true, aspect_ration=:equal)
 
+    if walls !== nothing
+        N_walls = length(walls)
+        for i in 1:N_walls
+            if walls[i].variable == "x"
+                range = pos_ylims[1]:pos_ylims[2]
+                plot!(plt, walls[i].m .* (range) .+ walls[i].b, range, color=:black, linewidth=15, label="")
+            elseif walls[i].variable == "y"
+                range = pos_xlims[1]:pos_xlims[2]
+                plot!(plt, range, walls[i].m .* (range) .+ walls[i].b, color=:black, linewidth=15, label="")
+            end
+        end
+    end
 
     for i in 1:length(ego_xs[:, 1]) - 1
         # plot!(plt, ego_ideal_xs[1:i,1], ego_ideal_xs[1:i,2], color=:purple, linewidth=linewidth, lab="", alpha=alpha_ideal)
@@ -670,7 +766,7 @@ function animation(ego_path::Matrix{Float64}, other_path::Matrix{Float64}; pos_x
     return gif(a, fps=60)
 end
 
-function animation(ip::InteractionPlanner, constant_velo_agents::ConstantVeloAgent...; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
+function animation(ip::InteractionPlanner, constant_velo_agents::ConstantVeloAgent...; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
     a = Animation()
 
     linewidth = 3
@@ -699,6 +795,19 @@ function animation(ip::InteractionPlanner, constant_velo_agents::ConstantVeloAge
     plot!(plt, ego_incon_xs[1:1,1], ego_incon_xs[1:1,2], color=ego_color, linewidth=linewidth, lab="Robot")
     plot!(plt, other_incon_xs[1:1,1], other_incon_xs[1:1,2], color=other_color, linewidth=linewidth, lab="Human")
 
+    if walls !== nothing
+        N_walls = length(walls)
+        for i in 1:N_walls
+            if walls[i].variable == "x"
+                range = pos_ylims[1]:pos_ylims[2]
+                plot!(plt, walls[i].m .* (range) .+ walls[i].b, range, color=:black, linewidth=15, label="")
+            elseif walls[i].variable == "y"
+                range = pos_xlims[1]:pos_xlims[2]
+                plot!(plt, range, walls[i].m .* (range) .+ walls[i].b, color=:black, linewidth=15, label="")
+            end
+        end
+    end
+
     for i in 1:ip.ego_planner.ideal.hps.time_horizon
         # plot!(plt, ego_ideal_xs[1:i,1], ego_ideal_xs[1:i,2], color=:purple, linewidth=linewidth, lab="", alpha=alpha_ideal)
         plot!(plt, ego_incon_xs[1:i,1], ego_incon_xs[1:i,2], color=ego_color, linewidth=linewidth, lab="")
@@ -710,11 +819,73 @@ function animation(ip::InteractionPlanner, constant_velo_agents::ConstantVeloAge
         frame(a, plt)
     end
 
+
     if save_name != "none"
         gif(a, "../animations/$save_name.gif", fps = 15) 
     end 
 
     return gif(a, fps=60)
+end
+
+function animation(ego_path::Matrix{Float64}, other_path::Matrix{Float64}, dt::Float64, constant_velo_agents::ConstantVeloAgent...; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
+    a = Animation()
+
+    linewidth = 3
+    alpha_ideal = 0.2
+    ego_color = :blue
+    other_color = :red
+
+    markersize=20
+    ego_xs = ego_path
+    other_xs = other_path
+
+    time_steps = length(ego_path[:, 1])
+
+    N_velo_agents = length(constant_velo_agents)
+    constant_velo_agents_pos = Vector{Matrix{Float64}}(undef, N_velo_agents)
+    
+    for i in 1:N_velo_agents
+        pos = constant_velo_agents[i].pos
+        velo = constant_velo_agents[i].velo
+        constant_velo_agents_pos[i] = vector_of_vectors_to_matrix([pos + velo * dt * j for j in 0:time_steps])
+    end
+
+    constant_velo_length = length(constant_velo_agents_pos[1][:, 1])
+
+    for i in 1:length(ego_xs[:, 1]) - 1
+        plt = plot(ego_xs[1:i,1], ego_xs[1:i,2], color=ego_color, linewidth=linewidth, lab="Robot Path", xlim=pos_xlims, ylim=pos_ylims, xlabel="x position", ylabel="y position", title="Position Animation", margin=10mm, titlefontsize=20, legendfontsize=13, labelfontsize=13, axisfontsize=13)
+        plot!(plt, other_xs[1:i,1], other_xs[1:i,2], size=(1200, 800), color=other_color, linewidth=linewidth, lab="Human Path")
+        scatter!(plt, ego_xs[i:i, 1], ego_xs[i:i, 2], color=:blue, alpha=0.3, markersize=markersize, label="Robot")
+        scatter!(plt, other_xs[i:i, 1], other_xs[i:i, 2], color=:red, alpha=0.3, markersize=markersize, label="Human")
+
+        scatter!(plt, [10000.], [10000.], color=:black, alpha=0.3, markersize=10, label="Non-interactive Humans")
+
+        if i <= constant_velo_length
+            for j in 1:N_velo_agents
+                scatter!(plt, constant_velo_agents_pos[j][i:i, 1], constant_velo_agents_pos[j][i:i, 2], label="", color=:black, alpha=0.3, markersize=markersize)
+            end
+        end
+
+        if walls !== nothing
+            N_walls = length(walls)
+            for i in 1:N_walls
+                if walls[i].variable == "x"
+                    range = pos_ylims[1]:pos_ylims[2]
+                    plot!(plt, walls[i].m .* (range) .+ walls[i].b, range, color=:black, linewidth=15, label="")
+                elseif walls[i].variable == "y"
+                    range = pos_xlims[1]:pos_xlims[2]
+                    plot!(plt, range, walls[i].m .* (range) .+ walls[i].b, color=:black, linewidth=15, label="")
+                end
+            end
+        end
+        frame(a, plt)
+    end
+
+    if save_name != "none"
+        gif(a, "../animations/$save_name.gif", fps = 10) 
+    end 
+
+    return gif(a, fps=15)
 end
 
 function avoidance_animation(ip::InteractionPlanner; pos_xlims=[-1, 8], pos_ylims=[-3, 3], save_name="none")
