@@ -118,3 +118,73 @@ function get_constant_velocity_agent_positions(time_horizon, dt, constant_velo_a
 
     positions = [pos + velo_vector * dt * i for i in 0:N]
 end
+
+struct Wall
+    variable::String
+    m::Union{Float64, Int64, Nothing}
+    b::Union{Float64, Int64, Nothing}
+    inequality_condition::String
+end
+
+function wall_constraint(ip::InteractionPlanner, wall::Wall, constraint_name::String)
+    inequality_condition = wall.inequality_condition
+
+    if inequality_condition != "greater" && inequality_condition != "less"
+        throw(ArgumentError("Must input 'greater' or 'less' for inequality_condition, passed '$(inequality_condition)'"))
+    end
+
+    ego_model = ip.ego_planner.incon.model
+    other_model = ip.other_planner.incon.model
+    radius = ip.ego_planner.incon.hps.collision_radius
+
+    if wall.variable == "x"
+        if inequality_condition == "greater"
+            ego_model[Symbol(constraint_name)] = @constraint(ego_model, ego_model[:x][:, 1] .>= ego_model[:x][:, 2] * wall.m + wall.b + radius)
+            other_model[Symbol(constraint_name)] = @constraint(other_model, other_model[:x][:, 1] .>= other_model[:x][:, 2] * wall.m + wall.b + radius)
+        else
+            ego_model[Symbol(constraint_name)] = @constraint(ego_model, ego_model[:x][:, 1] .<= ego_model[:x][:, 2] * wall.m + wall.b - radius)
+            other_model[Symbol(constraint_name)] = @constraint(other_model, other_model[:x][:, 1] .<= other_model[:x][:, 2] * wall.m + wall.b - radius)
+
+        end
+    elseif wall.variable == "y"
+        if inequality_condition == "greater"
+            ego_model[Symbol(constraint_name)] = @constraint(ego_model, ego_model[:x][:, 2] .>= ego_model[:x][:, 1] * wall.m + wall.b + radius)
+            other_model[Symbol(constraint_name)] = @constraint(other_model, other_model[:x][:, 2] .>= other_model[:x][:, 1] * wall.m + wall.b + radius)
+        else
+            ego_model[Symbol(constraint_name)] = @constraint(ego_model, ego_model[:x][:, 2] .<= ego_model[:x][:, 1] * wall.m + wall.b - radius)
+            other_model[Symbol(constraint_name)] = @constraint(other_model, other_model[:x][:, 2] .<= other_model[:x][:, 1] * wall.m + wall.b - radius)
+
+        end
+    else
+        throw(ArgumentError("Invalid variable. Must pass 'x' or 'y', passed '$(constraint_variable)'"))
+    end
+end
+
+function wall_constraint(problem::InconvenienceProblem, wall::Wall, constraint_name::String)
+    inequality_condition = wall.inequality_condition
+
+    if inequality_condition != "greater" && inequality_condition != "less"
+        throw(ArgumentError("Must input 'greater' or 'less' for inequality_condition, passed '$(inequality_condition)'"))
+    end
+
+    model = problem.model
+    radius = problem.hps.collision_radius
+
+    if wall.variable == "x"
+        if inequality_condition == "greater"
+            model[Symbol(constraint_name)] = @constraint(model, model[:x][:, 1] .>= model[:x][:, 2] * wall.m + wall.b + radius)
+        else
+            model[Symbol(constraint_name)] = @constraint(model, model[:x][:, 1] .<= model[:x][:, 2] * wall.m + wall.b - radius)
+
+        end
+    elseif wall.variable == "y"
+        if inequality_condition == "greater"
+            model[Symbol(constraint_name)] = @constraint(model, model[:x][:, 2] .>= model[:x][:, 1] * wall.m + wall.b + radius)
+        else
+            model[Symbol(constraint_name)] = @constraint(model, model[:x][:, 2] .<= model[:x][:, 1] * wall.m + wall.b - radius)
+
+        end
+    else
+        throw(ArgumentError("Invalid variable. Must pass 'x' or 'y', passed '$(constraint_variable)'"))
+    end
+end
