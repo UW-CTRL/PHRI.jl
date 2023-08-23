@@ -6,6 +6,8 @@ vector_of_vectors_to_matrix(vec_of_vec::Vector{Vector{T}}) where {T} = mapreduce
 struct PlannerParams
     hps::PlannerHyperparameters
     opt_params::PlannerOptimizerParams
+    counterpart_hps::PlannerHyperparameters
+    counterpart_opt_params::PlannerOptimizerParams
 end
 
 struct HITLParams

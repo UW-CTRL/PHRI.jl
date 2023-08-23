@@ -43,7 +43,7 @@ function plot_solve_solution(problem::InteractionPlanner; walls::Union{Vector{Wa
     alpha_ideal = 0.4
     linewidth = 2
     markersize = 2
-    markersize_large = 7
+    markersize_large = 12
     ego_color = :blue
     other_color = :red
 
@@ -140,7 +140,7 @@ function plot_solve_solution(problem::InteractionPlanner, constant_velo_agents::
     alpha_ideal = 0.4
     linewidth = 2
     markersize = 2
-    markersize_large = 7
+    markersize_large = 10
     ego_color = :blue
     other_color = :red
 
