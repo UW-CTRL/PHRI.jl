@@ -424,7 +424,7 @@ function plot_solve_solution(problem::SaveData; walls::Union{Vector{Wall}, Nothi
     slack_violation = Vector{Float64}(undef, iterations)
 
     for i in 1:iterations
-        slack_violation[i] = value(problem.previous_ips[i].ego_planner.incon.model[:ϵ])
+        slack_violation[i] = maximum(value.(problem.previous_ips[i].ego_planner.incon.model[:ϵ]))
     end
 
     plot_slack_violation = plot(size=(height, height), xlabel="Iteration", ylabel="ϵ (slack value)", title="Slack (collision) Violation", margin=10mm)

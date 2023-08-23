@@ -97,7 +97,7 @@ function add_constant_velocity_agent(problem::InconvenienceProblem, constant_vel
 
     for t in 1:N+1
         for i in 1:N_velo_agents
-            model[Symbol("constant_velo_avoidance_agent_$(i)_$(t)")] = @constraint(model, dot(constant_velo_Gs[i][t], ego_ps[t]) + constant_velo_Hs[i][t] .>= -model[:ϵ], base_name="constant_velo_avoidance_agent_$(i)_$(t)")
+            model[Symbol("constant_velo_avoidance_agent_$(i)_$(t)")] = @constraint(model, dot(constant_velo_Gs[i][t], ego_ps[t]) + constant_velo_Hs[i][t] .>= -model[:ϵ][t], base_name="constant_velo_avoidance_agent_$(i)_$(t)")
         end
     end      
 end
