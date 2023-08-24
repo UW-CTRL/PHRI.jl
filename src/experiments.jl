@@ -166,10 +166,12 @@ function compute_path_efficiency(sim_data::SimData)
     ego_dyn = sim_data.sim_params.ego_planner_params.hps.dynamics
     ego_xs = sim_data.ego_states
     ego_goal = sim_data.sim_params.ego_planner_params.opt_params.goal_state
+    ego_hps = sim_data.sim_params.ego_planner_params.hps
 
     other_dyn = sim_data.sim_params.other_planner_params.hps.dynamics
     other_xs = sim_data.other_states
     other_goal = sim_data.sim_params.other_planner_params.opt_params.goal_state
+    other_hps = sim_data.sim_params.other_planner_params.hps
 
     ego_hps.time_horizon = sim_horizon
     other_hps.time_horizon = sim_horizon
@@ -191,6 +193,61 @@ function compute_path_efficiency(sim_data::SimData)
 
     Dict("Ego Path Efficiency" => ego_path_efficiency, "Other Path Efficiency" => other_path_efficiency)
 end
+
+function compute_minimum_distance(sim_data::SimData)
+    sim_horizon = length(sim_data.ego_states[:, 1])
+    ego_xs = sim_data.ego_states
+    other_xs = sim_data.other_states
+
+    state_difference = ego_xs[:, 1:2] - other_xs[:, 1:2]
+    min_distance = minimum([norm(state_difference[i, :]) for i in 1:sim_horizon])
+
+    Dict("Min Distance" => min_distance)
+end
+
+function compute_time_to_collision(sim_data::SimData)
+    dt = sim_data.sim_params.ego_planner_params.hps.dynamics.dt
+    sim_horizon = length(sim_data.ego_states[:, 1])
+
+    ego_dyn = sim_data.sim_params.ego_planner_params.hps.dynamics
+    ego_xs = sim_data.ego_states
+    ego_us = sim_data.ego_controls
+    ego_goal = sim_data.sim_params.ego_planner_params.opt_params.goal_state
+
+    other_dyn = sim_data.sim_params.other_planner_params.hps.dynamics
+    other_xs = sim_data.other_states
+    other_us = sim_data.other_controls
+    other_goal = sim_data.sim_params.other_planner_params.opt_params.goal_state
+
+    time_to_collision = Vector{Float64}(undef, sim_horizon-1)
+
+    ego_velos = get_velocity(ego_dyn, matrix_to_vector_of_vectors(ego_xs)[1:end-1], matrix_to_vector_of_vectors(ego_us))
+    other_velos = get_velocity(other_dyn, matrix_to_vector_of_vectors(other_xs)[1:end-1], matrix_to_vector_of_vectors(other_us))
+
+    for i in 1:sim_horizon-1
+        collision_point = nothing
+        ego_projected_pos = [ego_xs[i, 1:2] + ego_velos[i][:] * t for t in 0:sim_horizon-1]
+        other_projected_pos = [other_xs[i, 1:2] + other_velos[i][:] * t for t in 0:sim_horizon-1]
+        distances = norm.(ego_projected_pos - other_projected_pos)
+        for j in 1:sim_horizon
+            if distances[j] < 0.75
+                collision_point = j
+                break
+            end
+        end
+
+        if collision_point != nothing
+            relative_speed = norm(ego_velos[i][:] - other_velos[i][:])
+            distance_to_collision = distances[1] - distances[collision_point]
+            time_to_collision[i] = distance_to_collision / relative_speed
+        else
+            time_to_collision[i] = NaN
+        end
+    end
+    
+    Dict("Time to collision" => time_to_collision)
+end
+    
 
 function evaluate_sim(sim_data::SimData)
 end
