@@ -62,3 +62,26 @@ function mohrs_circle_states(dyn::DynamicallyExtendedUnicycle, initial_start_sta
     end
     states_list
 end
+
+function compute_path_length(path::Matrix{Float64})
+    if length(path[1, :]) >= 2
+        path = path[:, 1:2]
+    else
+        throw(ArgumentError("Invalid Path --- must have at least two dimensions"))
+    end
+
+    N = length(path[:, 1])
+    print(N)
+    l = sum(norm(path[i, :] - path[i-1, :]) for i in 2:N)
+end
+
+function compute_path_length(path::Vector{Vector{Float64}})
+    if length(path[1]) >= 2
+        path = vector_of_vectors_to_matrix(path)[:, 1:2]
+    else
+        throw(ArgumentError("Invalid Path --- must have at least two dimensions"))
+    end
+
+    N = length(path[:, 1])
+    l = sum(norm(path[i, :] - path[i-1, :]) for i in 2:N)
+end
