@@ -8,9 +8,17 @@ include("utils.jl")
 
 using ProgressBars
 
-# struct SimMetrics
-
-# end
+struct SimMetrics
+    control_effort::Dict{String, Float64}
+    PI::Dict{String, Float64}
+    avg_accel::Dict{String, Float64}
+    PE::Dict{String, Float64}
+    min_dist::Dict{String, Float64}
+    ttc::Dict{String, Vector{Float64}}
+    θ::Dict{String, Vector{Float64}}
+    dθ_dt::Dict{String, Vector{Float64}}
+    time::Dict{String, Any}
+end
 
 function simulation_sweep(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}})
     runs = maximum([length(ego_boundary_conditions), length(other_boundary_conditions)])
@@ -52,16 +60,16 @@ function simulation_sweep(ego_ip::InteractionPlanner, other_ip::InteractionPlann
         runs_dict["Run $(j)"] = sim_data
 
         # deleting variables
-        sim_ego_ip = Nothing
-        sim_other_ip = Nothing
-        ego_params = Nothing
-        other_params = Nothing
-        sim_params = Nothing
-        ego_states = Nothing
-        ego_controls = Nothing
-        other_states = Nothing
-        other_controls = Nothing
-        sim_data = Nothing
+        sim_ego_ip = nothing
+        sim_other_ip = nothing
+        ego_params = nothing
+        other_params = nothing
+        sim_params = nothing
+        ego_states = nothing
+        ego_controls = nothing
+        other_states = nothing
+        other_controls = nothing
+        sim_data = nothing
     end
 
     runs_dict
