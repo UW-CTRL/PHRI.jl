@@ -77,7 +77,7 @@ function compute_average_control_effort(sim_data::SimData)
     ego_us = sim_data.ego_controls
     other_us = sim_data.other_controls
 
-    Dict("Ego Avg Energy" => sum(norm(ego_us[t, :]) for t in 1:sim_horizon-1) / (sim_horizon-1), "Other Avg Energy" => sum(norm(other_us[t, :]) for t in 1:sim_horizon-1) / sim_horizon)
+    Dict("Ego Avg Control Effort" => sum(norm(ego_us[t, :]) for t in 1:sim_horizon-1) / (sim_horizon-1), "Other Avg Control Effort" => sum(norm(other_us[t, :]) for t in 1:sim_horizon-1) / sim_horizon)
 end
 
 function compute_path_irregularity_index(sim_data::SimData)
@@ -237,7 +237,7 @@ function compute_time_to_collision(sim_data::SimData)
             end
         end
 
-        if collision_point != nothing
+        if collision_point !== nothing
             relative_speed = norm(ego_velos[i][:] - other_velos[i][:])
             distance_to_collision = distances[1] - distances[collision_point]
             time_to_collision[i] = distance_to_collision / relative_speed
@@ -249,7 +249,7 @@ function compute_time_to_collision(sim_data::SimData)
     Dict("Time to collision" => time_to_collision)
 end
 
-function compute_theta(sim_data)
+function compute_θ(sim_data)
     dt = sim_data.sim_params.ego_planner_params.hps.dynamics.dt
     sim_horizon = length(sim_data.ego_states[:, 1])
 
@@ -270,7 +270,30 @@ function compute_theta(sim_data)
     ego_theta = [acos(dot(ego_velos[i][:], [1., 0]) / (norm(ego_velos[i][:]))) for i in 1:sim_horizon-1]
     other_theta = [acos(dot(other_velos[i][:], [1., 0]) / (norm(other_velos[i][:]))) for i in 1:sim_horizon-1]
 
-    Dict("Ego Theta" => ego_theta, "Other Theta" => other_theta)
+    Dict("Ego θ" => ego_theta, "Other θ" => other_theta)
+end
+
+function compute_dθ_dt(sim_data::SimData)
+    dt = sim_data.sim_params.ego_planner_params.hps.dynamics.dt
+    sim_horizon = length(sim_data.ego_states[:, 1])
+
+    ego_dyn = sim_data.sim_params.ego_planner_params.hps.dynamics
+    ego_xs = sim_data.ego_states
+    ego_us = sim_data.ego_controls
+    ego_goal = sim_data.sim_params.ego_planner_params.opt_params.goal_state
+
+    other_dyn = sim_data.sim_params.other_planner_params.hps.dynamics
+    other_xs = sim_data.other_states
+    other_us = sim_data.other_controls
+    other_goal = sim_data.sim_params.other_planner_params.opt_params.goal_state
+
+    ego_θ = compute_θ(sim_data)["Ego θ"]
+    other_θ = compute_θ(sim_data)["Other θ"]
+
+    ego_dθ_dt = [abs((ego_θ[t] - ego_θ[t-1]))/ dt for t in 2:sim_horizon-1]
+    other_dθ_dt = [abs((other_θ[t] - other_θ[t-1])) / dt for t in 2:sim_horizon-1]
+
+    Dict("Ego dθ/dt" => ego_dθ_dt, "Other dθ/dt" => other_dθ_dt)
 end
 
 function evaluate_sim(sim_data::SimData)
