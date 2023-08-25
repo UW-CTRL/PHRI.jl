@@ -296,5 +296,30 @@ function compute_dθ_dt(sim_data::SimData)
     Dict("Ego dθ/dt" => ego_dθ_dt, "Other dθ/dt" => other_dθ_dt)
 end
 
+function compute_time(sim_data)
+    dt = sim_data.sim_params.ego_planner_params.hps.dynamics.dt
+    sim_horizon = length(sim_data.ego_states[:, 1])
+
+    ego_solve_times = sim_data.solve_times[1]
+    ego_avg_solve_time = sum(ego_solve_times) / (sim_horizon - 1)
+    ego_max_solve_time = maximum(ego_solve_times)
+    ego_planning_deadline_overruns = length(findall(x -> x >= 0.1, ego_solve_times))
+
+    timing_dict = Dict("Ego Solve Times" => ego_solve_times, "Ego Average Solve Time" => ego_avg_solve_time, "Ego Max Solve Time" => ego_max_solve_time, "Ego Planning Deadline Overruns" => ego_planning_deadline_overruns)
+
+    if sim_data.solve_times[2] !== nothing
+        other_solve_times = sim_data.solve_times[2]
+        other_avg_solve_time = sum(other_solve_times) / (sim_horizon - 1)
+        other_max_solve_time = maximum(other_solve_times)
+        other_planning_deadline_overruns = length(findall(x -> x >= 0.1, other_solve_times))
+        timing_dict["Other Solve Times"] = other_solve_times
+        timing_dict["Other Average Solve Time"] = other_avg_solve_time
+        timing_dict["Other Max Solve Time"] = other_max_solve_time
+        timing_dict["Other Planning Deadline Overruns"] = other_planning_deadline_overruns
+    end
+
+    timing_dict
+end
+
 function evaluate_sim(sim_data::SimData)
 end

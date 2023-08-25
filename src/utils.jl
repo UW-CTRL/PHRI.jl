@@ -29,7 +29,8 @@ struct SFMSimParams
 end
 
 struct SimData
-    sim_params
+    sim_params::Union{HITLParams, SFMParams, IPSimParams}
+    solve_times::Tuple{Vector{Float64}, Union{Vector{Float64}, Nothing}}
     ego_states::Matrix{Float64}
     ego_controls::Matrix{Float64}
     other_states::Matrix{Float64}
