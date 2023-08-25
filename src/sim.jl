@@ -15,14 +15,25 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
     ego_traj[1] = ego_ip.ego_planner.incon.opt_params.initial_state
     other_traj[1] = other_ip.ego_planner.incon.opt_params.initial_state
 
+    ego_solve_times = Vector{Float64}(undef, sim_horizon)
+    other_solve_times = Vector{Float64}(undef, sim_horizon)
+
     # Uses MPC function to simulate to a given time horizon
     for i in 1:(sim_horizon)
 
         ego_state = ego_traj[i]
         other_state = other_traj[i]
         # solve for the next iteration
+
+        ego_solve_start = time()
         ego_control = mpc_step(ego_ip, ego_state, other_state, ibr_iterations=ibr_iterations, leader=leader)
+        ego_solve_end = time()
+        ego_solve_times[i] = ego_solve_end - ego_solve_start
+
+        other_solve_start = time()
         other_control = mpc_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
+        other_solve_end = time()
+        other_solve_times[i] = other_solve_end - other_solve_start
 
         ego_state = step(ego_dyn, ego_state, ego_control)
         other_state = step(other_dyn, other_state, other_control)
@@ -40,7 +51,7 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
     other_traj = vector_of_vectors_to_matrix(other_traj)
     other_controls = vector_of_vectors_to_matrix(other_controls)
 
-    ego_traj, ego_controls, other_traj, other_controls
+    ego_traj, ego_controls, other_traj, other_controls, (ego_solve_times, other_solve_times)
 end
 
 function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon::Int64, constant_velo_agents::ConstantVeloAgent...; ibr_iterations=3::Int64, leader="ego"::String)
