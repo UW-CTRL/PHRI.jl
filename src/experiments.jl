@@ -8,17 +8,17 @@ include("utils.jl")
 
 using ProgressBars
 
-struct SimMetrics
-    avg_energy::Float64
-    avg_accel_per_segment::Float64
-    PI::Float64
-    time_not_moving::Float64
-    path_efficiency::Float64
-    proactiveness::Float64
-end
+# struct SimMetrics
 
-function simulation_sweep(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}})
+# end
+
+function simulation_sweep(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}})
     runs = maximum([length(ego_boundary_conditions), length(other_boundary_conditions)])
+
+    ego_ego_hps = ego_ip.ego_planner.incon.hps
+    ego_other_hps = ego_ip.other_planner.incon.hps
+    other_ego_hps = other_ip.ego_planner.incon.hps
+    other_other_hps = other_ip.other_planner.incon.hps
 
     if length(ego_boundary_conditions) == 1 
         for i in 1:(runs - 1)
@@ -34,31 +34,26 @@ function simulation_sweep(ego_ip::InteractionPlanner, other_ip::InteractionPlann
         throw(ArgumentError("length of 'ego_boundary_conditions' and 'other_boundary_conditions' must match"))
     end
 
-    runs_dict = Dict()
+    runs_dict = Dict{String, SimData}()
 
     for j in ProgressBar(1:runs)
-        copied_ego_ip = deepcopy(ego_ip)
-        copied_other_ip = deepcopy(other_ip)
+        sim_ego_ip = InteractionPlanner(ego_ego_hps, ego_other_hps, ego_boundary_conditions[j][1], other_boundary_conditions[j][1], ego_boundary_conditions[j][2], other_boundary_conditions[j][2], "ECOS")
+        sim_other_ip = InteractionPlanner(other_ego_hps, other_other_hps, other_boundary_conditions[j][1], ego_boundary_conditions[j][1], other_boundary_conditions[j][2], ego_boundary_conditions[j][2], "ECOS")
 
-        copied_ego_ip.ego_planner.incon.opt_params.initial_state = ego_boundary_conditions[j][1]
-        copied_ego_ip.ego_planner.incon.opt_params.goal_state = ego_boundary_conditions[j][2]
-        copied_other_ip.other_planner.incon.opt_params.initial_state = other_boundary_conditions[j][1]
-        copied_other_ip.other_planner.incon.opt_params.goal_state = other_boundary_conditions[j][2]
-
-        ego_params = PlannerParams(copied_ego_ip.ego_planner.incon.hps, copied_ego_ip.ego_planner.incon.opt_params, copied_ego_ip.other_planner.incon.hps, copied_ego_ip.other_planner.incon.opt_params)
-        other_params = PlannerParams(copied_other_ip.ego_planner.incon.hps, copied_other_ip.ego_planner.incon.opt_params, copied_other_ip.other_planner.incon.hps, copied_other_ip.other_planner.incon.opt_params)
+        ego_params = PlannerParams(sim_ego_ip.ego_planner.incon.hps, sim_ego_ip.ego_planner.incon.opt_params, sim_ego_ip.other_planner.incon.hps, sim_ego_ip.other_planner.incon.opt_params)
+        other_params = PlannerParams(sim_other_ip.ego_planner.incon.hps, sim_other_ip.ego_planner.incon.opt_params, sim_other_ip.other_planner.incon.hps, sim_other_ip.other_planner.incon.opt_params)
 
         sim_params = IPSimParams(ego_params, other_params)
 
-        ego_states, ego_controls, other_states, other_controls = simulate(copied_ego_ip, copied_other_ip, 50)
+        ego_states, ego_controls, other_states, other_controls, solve_time = simulate(sim_ego_ip, sim_other_ip, sim_horizon)
 
-        sim_data = SimData(sim_params, ego_states, ego_controls, other_states, other_controls)
+        sim_data = SimData(sim_params, solve_time, ego_states, ego_controls, other_states, other_controls)
 
         runs_dict["Run $(j)"] = sim_data
 
         # deleting variables
-        copied_ego_ip = Nothing
-        copied_other_ip = Nothing
+        sim_ego_ip = Nothing
+        sim_other_ip = Nothing
         ego_params = Nothing
         other_params = Nothing
         sim_params = Nothing
@@ -322,4 +317,15 @@ function compute_time(sim_data)
 end
 
 function evaluate_sim(sim_data::SimData)
+    # function that returns all metrics from a simulation run
+    metrics = SimMetrics(compute_average_control_effort(sim_data),
+                        compute_path_irregularity_index(sim_data),
+                        compute_average_acceleration_per_segment(sim_data),
+                        compute_path_efficiency(sim_data),
+                        compute_minimum_distance(sim_data),
+                        compute_time_to_collision(sim_data),
+                        compute_θ(sim_data),
+                        compute_dθ_dt(sim_data),
+                        compute_time(sim_data)
+    )
 end
