@@ -337,3 +337,25 @@ function evaluate_sim(sim_data::SimData)
                         compute_time(sim_data)
     )
 end
+
+function evaluate_sim(sim_data_sweep::Dict{String, SimData})
+    N_runs = length(sim_data_sweep)
+    metrics_dict = Dict{String, SimMetrics}()
+
+    for i in ProgressBar(1:N_runs)
+        metrics = SimMetrics(compute_average_control_effort(sim_data_sweep["Run $(i)"]),
+                            compute_path_irregularity_index(sim_data_sweep["Run $(i)"]),
+                            compute_average_acceleration_per_segment(sim_data_sweep["Run $(i)"]),
+                            compute_path_efficiency(sim_data_sweep["Run $(i)"]),
+                            compute_minimum_distance(sim_data_sweep["Run $(i)"]),
+                            compute_time_to_collision(sim_data_sweep["Run $(i)"]),
+                            compute_θ(sim_data_sweep["Run $(i)"]),
+                            compute_dθ_dt(sim_data_sweep["Run $(i)"]),
+                            compute_time(sim_data_sweep["Run $(i)"])
+        )
+        metrics_dict["Run $(i)"] = metrics
+        metrics = nothing
+    end
+
+    metrics_dict
+end
