@@ -18,6 +18,7 @@ struct SimMetrics
     θ::Dict{String, Vector{Float64}}
     dθ_dt::Dict{String, Vector{Float64}}
     time::Dict{String, Any}
+    plots::Dict{String, Plots.Plot{Plots.GRBackend}}
 end
 
 function simulation_sweep(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}})
@@ -299,7 +300,7 @@ function compute_dθ_dt(sim_data::SimData)
     Dict("Ego dθ/dt" => ego_dθ_dt, "Other dθ/dt" => other_dθ_dt)
 end
 
-function compute_time(sim_data)
+function compute_time(sim_data::SimData)
     dt = sim_data.sim_params.ego_planner_params.hps.dynamics.dt
     sim_horizon = length(sim_data.ego_states[:, 1])
 
@@ -324,8 +325,45 @@ function compute_time(sim_data)
     timing_dict
 end
 
+function plot_ttc(ttc::Dict{String, Vector{Float64}})
+    ttc_list = ttc["Time to collision"]
+    N = length(ttc_list)
+
+    ttc_plot = scatter(1:N, ttc_list, color=:red, markersize=3, label="Time to Collision", ylabel="Projected time to collision (s)", xlabel="Simulation timepoint", title="Time to collision plot", margin=5mm)
+
+    ttc_plot
+end
+
+function plot_θ(θs::Dict{String, Vector{Float64}})
+    ego_θs = θs["Ego θ"]
+    other_θs = θs["Other θ"]
+    N = length(ego_θs)
+
+    θ_plot = plot(1:N, ego_θs, color=:blue, linewidth=2, label="Ego θ", xlabel="Simulation timepoint", ylabel="θ (rad)", title="θ Plot", margin=5mm)
+    plot!(θ_plot, 1:N, other_θs, color=:red, linewidth=2, label="Other θ")
+
+    θ_plot
+end
+
+function plot_dθ_dt(dθ_dts::Dict{String, Vector{Float64}})
+    ego_dθ_dts = dθ_dts["Ego dθ/dt"]
+    other_dθ_dts = dθ_dts["Other dθ/dt"]
+    N = length(ego_dθ_dts)
+
+    dθ_dt_plot = plot(1:N, ego_dθ_dts, color=:blue, linewidth=2, label="Ego dθ/dt", xlabel="Simulation timepoint", ylabel="dθ/dt (rad)", title="dθ/dt Plot", margin=5mm)
+    plot!(dθ_dt_plot, 1:N, other_dθ_dts, color=:red, linewidth=2, label="Other dθ/dt")
+
+    dθ_dt_plot
+end
+
 function evaluate_sim(sim_data::SimData)
     # function that returns all metrics from a simulation run
+    plot_dict = Dict{String, Plots.Plot{Plots.GRBackend}}()
+    plot_dict["Overview Plot"] = plot_solve_solution(sim_data)
+    plot_dict["ttc"] = plot_ttc(compute_time_to_collision(sim_data))
+    plot_dict["θ"] = plot_θ(compute_θ(sim_data))
+    plot_dict["dθ/dt"] = plot_dθ_dt(compute_dθ_dt(sim_data))
+
     metrics = SimMetrics(compute_average_control_effort(sim_data),
                         compute_path_irregularity_index(sim_data),
                         compute_average_acceleration_per_segment(sim_data),
@@ -334,7 +372,8 @@ function evaluate_sim(sim_data::SimData)
                         compute_time_to_collision(sim_data),
                         compute_θ(sim_data),
                         compute_dθ_dt(sim_data),
-                        compute_time(sim_data)
+                        compute_time(sim_data),
+                        plot_dict
     )
 end
 
@@ -343,6 +382,12 @@ function evaluate_sim(sim_data_sweep::Dict{String, SimData})
     metrics_dict = Dict{String, SimMetrics}()
 
     for i in ProgressBar(1:N_runs)
+        plot_dict = Dict{String, Plots.Plot{Plots.GRBackend}}()
+        plot_dict["Overview Plot"] = plot_solve_solution(sim_data_sweep["Run $(i)"])
+        plot_dict["ttc"] = plot_ttc(compute_time_to_collision(sim_data_sweep["Run $(i)"]))
+        plot_dict["θ"] = plot_θ(compute_θ(sim_data_sweep["Run $(i)"]))
+        plot_dict["dθ/dt"] = plot_dθ_dt(compute_dθ_dt(sim_data_sweep["Run $(i)"]))
+
         metrics = SimMetrics(compute_average_control_effort(sim_data_sweep["Run $(i)"]),
                             compute_path_irregularity_index(sim_data_sweep["Run $(i)"]),
                             compute_average_acceleration_per_segment(sim_data_sweep["Run $(i)"]),
@@ -351,7 +396,8 @@ function evaluate_sim(sim_data_sweep::Dict{String, SimData})
                             compute_time_to_collision(sim_data_sweep["Run $(i)"]),
                             compute_θ(sim_data_sweep["Run $(i)"]),
                             compute_dθ_dt(sim_data_sweep["Run $(i)"]),
-                            compute_time(sim_data_sweep["Run $(i)"])
+                            compute_time(sim_data_sweep["Run $(i)"]),
+                            plot_dict
         )
         metrics_dict["Run $(i)"] = metrics
         metrics = nothing
