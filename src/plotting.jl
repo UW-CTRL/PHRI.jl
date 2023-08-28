@@ -491,7 +491,7 @@ function plot_solve_solution(problem::SimData; walls::Union{Vector{Wall}, Nothin
 
     # plotting position trajectory
     
-    plot_traj = scatter(ego_goal_state[1:1], ego_goal_state[2:2], size=(width, height), xlabel="x position", ylabel="y position", title="Position", margin=10mm, marker=:star, markersize=markersize_large, color=ego_color, ylims=pos_ylims, xlims=pos_xlims, aspect_ratio=:equal, label="ego goal")
+    plot_traj = scatter(ego_goal_state[1:1], ego_goal_state[2:2], xlabel="x position", ylabel="y position", title="Position", margin=10mm, marker=:star, markersize=markersize_large, color=ego_color, ylims=pos_ylims, xlims=pos_xlims, aspect_ratio=:equal, label="ego goal")
     scatter!(plot_traj, other_goal_state[1:1], other_goal_state[2:2], marker=:star, markersize=markersize_large, color=other_color, label="other goal")
 
     plot!(plot_traj, ego_xs[:,1], ego_xs[:,2], color=ego_color, linewidth=linewidth, label="ego")
@@ -572,7 +572,7 @@ function plot_solve_solution(problem::SimData, constant_velo_agents::ConstantVel
 
     # plotting position trajectory
     
-    plot_traj = scatter(ego_goal_state[1:1], ego_goal_state[2:2], size=(width, height), xlabel="x position", ylabel="y position", title="Position", margin=10mm, marker=:star, markersize=markersize_large, color=ego_color, ylims=pos_ylims, xlims=pos_xlims, aspect_ratio=:equal, label="ego goal")
+    plot_traj = scatter(ego_goal_state[1:1], ego_goal_state[2:2], xlabel="x position", ylabel="y position", title="Position", margin=10mm, marker=:star, markersize=markersize_large, color=ego_color, ylims=pos_ylims, xlims=pos_xlims, aspect_ratio=:equal, label="ego goal")
     scatter!(plot_traj, other_goal_state[1:1], other_goal_state[2:2], marker=:star, markersize=markersize_large, color=other_color, label="other goal")
 
     plot!(plot_traj, ego_xs[:,1], ego_xs[:,2], color=ego_color, linewidth=linewidth, label="ego")

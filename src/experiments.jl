@@ -7,6 +7,9 @@ include("sim.jl")
 include("utils.jl")
 
 using ProgressBars
+using Gtk
+using Cairo
+
 
 struct SimMetrics
     control_effort::Dict{String, Float64}
@@ -356,6 +359,19 @@ function plot_dθ_dt(dθ_dts::Dict{String, Vector{Float64}})
     dθ_dt_plot
 end
 
+function combine_sim_data_plots(sim_data::SimData)
+    width = 2000
+    height = 800
+    overview_plot = plot_solve_solution(sim_data)
+
+    ttc_plot = plot_ttc(compute_time_to_collision(sim_data))
+    θ_plot = plot_θ(compute_θ(sim_data))
+    dθ_dt_plot = plot_dθ_dt(compute_dθ_dt(sim_data))
+
+    l = @layout [a; b c d]
+    plot(overview_plot, ttc_plot, θ_plot, dθ_dt_plot, layout=l, size=(width, height), margin=10mm)
+end
+
 function evaluate_sim(sim_data::SimData)
     # function that returns all metrics from a simulation run
     plot_dict = Dict{String, Plots.Plot{Plots.GRBackend}}()
@@ -363,6 +379,7 @@ function evaluate_sim(sim_data::SimData)
     plot_dict["ttc"] = plot_ttc(compute_time_to_collision(sim_data))
     plot_dict["θ"] = plot_θ(compute_θ(sim_data))
     plot_dict["dθ/dt"] = plot_dθ_dt(compute_dθ_dt(sim_data))
+    plot_dict["Combined Plot"] = combine_sim_data_plots(sim_data)
 
     metrics = SimMetrics(compute_average_control_effort(sim_data),
                         compute_path_irregularity_index(sim_data),
@@ -387,6 +404,7 @@ function evaluate_sim(sim_data_sweep::Dict{String, SimData})
         plot_dict["ttc"] = plot_ttc(compute_time_to_collision(sim_data_sweep["Run $(i)"]))
         plot_dict["θ"] = plot_θ(compute_θ(sim_data_sweep["Run $(i)"]))
         plot_dict["dθ/dt"] = plot_dθ_dt(compute_dθ_dt(sim_data_sweep["Run $(i)"]))
+        plot_dict["Combined Plot"] = combine_sim_data_plots(sim_data_sweep["Run $(i)"])
 
         metrics = SimMetrics(compute_average_control_effort(sim_data_sweep["Run $(i)"]),
                             compute_path_irregularity_index(sim_data_sweep["Run $(i)"]),
@@ -405,3 +423,111 @@ function evaluate_sim(sim_data_sweep::Dict{String, SimData})
 
     metrics_dict
 end
+
+function format_data(data::Vector{Tuple{String, String}})
+    max_label_width = maximum(length.([d[1] for d in data]))
+    formatted_lines = []
+    for d in data
+        if d[1] == ""
+            push!(formatted_lines, "<b>-</b>"^(max_label_width * 2))
+        else
+            push!(formatted_lines, string("<b>", d[1], "</b>", d[2]))
+        end
+    end
+    formatted_string = join(formatted_lines, "\n")
+    return formatted_string
+end
+
+function display_data(sim_sweep::Dict{String, SimMetrics}; h = 2000, w = 1400)
+    io_combined = PipeBuffer()
+
+    N_runs = length(sim_sweep)
+    combined_plot(n) = show(io_combined, MIME("image/png"),  sim_sweep["Run $(n)"].plots["Combined Plot"])
+
+    win = GtkWindow("Sim Sweep Data Display", h, w)
+
+    vbox = GtkBox(:v, spacing=10)  # Create a vertical box layout
+    push!(win, vbox)
+
+    slide = GtkScale(false, 1:N_runs)
+    Gtk.G_.value(slide, N_runs)
+    push!(vbox, slide)
+
+    canvas_1 = GtkCanvas()
+    push!(vbox, canvas_1)
+
+    n = Int(Gtk.GAccessor.value(slide))    
+
+    data = [
+    ("<u>Sim $(n) Metrics</u>", ""),
+    (" ", " "),
+    ("Ego Average Control Effort = ", "$(round(sim_sweep["Run $(n)"].control_effort["Ego Avg Control Effort"], sigdigits=4))"),
+    ("Other Average Control Effort = ", "$(round(sim_sweep["Run $(n)"].control_effort["Other Avg Control Effort"], sigdigits=4))"),
+    ("", ""),
+    ("Ego PI = ", "$(round(sim_sweep["Run $(n)"].PI["ego PI"], sigdigits=4))"),
+    ("Other PI = ", "$(round(sim_sweep["Run $(n)"].PI["other PI"], sigdigits=4))"),
+    ("", ""),
+    ("Ego PE = ", "$(round(sim_sweep["Run $(n)"].PE["Ego Path Efficiency"], sigdigits=4))"),
+    ("Other PE = ", "$(round(sim_sweep["Run $(n)"].PE["Other Path Efficiency"], sigdigits=4))"),
+    ("", ""),
+    ("Minimum Distance = ", "$(round(sim_sweep["Run $(n)"].min_dist["Min Distance"], sigdigits=4))"),
+    ("", ""),
+    ("Max Solve Time: ", "$(round(sim_sweep["Run $(n)"].time["Ego Max Solve Time"], sigdigits=4)) s"),
+    ("Average Solve Time: ", "$(round(sim_sweep["Run $(n)"].time["Ego Average Solve Time"], sigdigits=4)) s"),
+    ("Planning Deadline Overruns: ", "$(trunc(Int, sim_sweep["Run $(n)"].time["Ego Planning Deadline Overruns"]))")
+    ]   
+
+    global text_label = GtkLabel("", margin_top=0)
+    GAccessor.markup(text_label, format_data(data))
+    push!(vbox, text_label)
+
+
+
+    set_gtk_property!(vbox, :expand, canvas_1, true)
+    set_gtk_property!(text_label, :vexpand, false)
+    set_gtk_property!(text_label, :margin_top, 0)
+    set_gtk_property!(text_label, :margin_bottom, 100)
+    # set_gtk_property!(text_label, :margin_left, 15)
+
+    function update_text(slide)
+        n = Int(Gtk.GAccessor.value(slide))
+
+        data = [
+            ("<u>Sim $(n) Metrics</u>", ""),
+            (" ", " "),
+            ("Ego Average Control Effort = ", "$(round(sim_sweep["Run $(n)"].control_effort["Ego Avg Control Effort"], sigdigits=4))"),
+            ("Other Average Control Effort = ", "$(round(sim_sweep["Run $(n)"].control_effort["Other Avg Control Effort"], sigdigits=4))"),
+            ("", ""),
+            ("Ego PI = ", "$(round(sim_sweep["Run $(n)"].PI["ego PI"], sigdigits=4))"),
+            ("Other PI = ", "$(round(sim_sweep["Run $(n)"].PI["other PI"], sigdigits=4))"),
+            ("", ""),
+            ("Ego PE = ", "$(round(sim_sweep["Run $(n)"].PE["Ego Path Efficiency"], sigdigits=4))"),
+            ("Other PE = ", "$(round(sim_sweep["Run $(n)"].PE["Other Path Efficiency"], sigdigits=4))"),
+            ("", ""),
+            ("Minimum Distance = ", "$(round(sim_sweep["Run $(n)"].min_dist["Min Distance"], sigdigits=4))"),
+            ("", ""),
+            ("Max Solve Time: ", "$(round(sim_sweep["Run $(n)"].time["Ego Max Solve Time"], sigdigits=4)) s"),
+            ("Average Solve Time: ", "$(round(sim_sweep["Run $(n)"].time["Ego Average Solve Time"], sigdigits=4)) s"),
+            ("Planning Deadline Overruns: ", "$(trunc(Int, sim_sweep["Run $(n)"].time["Ego Planning Deadline Overruns"]))")
+            ]   
+
+        GAccessor.markup(text_label, format_data(data))
+    end
+
+    @guarded draw(canvas_1) do widget
+        ctx = getgc(canvas_1)
+        n = Int(Gtk.GAccessor.value(slide))
+        combined_plot(n)
+        plot_img = read_from_png(io_combined)
+        set_source_surface(ctx, plot_img, 0, 0)
+        paint(ctx)
+    end
+
+    id_2 = signal_connect(update_text, slide, "value-changed")
+    id_1 = signal_connect((w) -> draw(canvas_1), slide, "value-changed")
+    showall(win)
+    show(canvas_1)
+    show(text_label)
+end
+
+display_data(test_data_sweep_metrics)
