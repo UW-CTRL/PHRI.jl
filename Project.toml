@@ -5,10 +5,12 @@ version = "1.0.0-DEV"
 
 [deps]
 AngleBetweenVectors = "ec570357-d46e-52ed-9726-18773498274d"
+Cairo = "159f3aea-2a34-519c-b102-8c37f9878175"
 Classes = "1a9c1350-211b-5766-99cd-4544d885a0d1"
 ECOS = "e2685f51-7e38-5353-a97d-a921fd2c8199"
 EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+Gtk = "4c0ca9eb-093a-5379-98c5-f87ac0bbbf44"
 Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
