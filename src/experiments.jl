@@ -529,5 +529,3 @@ function display_data(sim_sweep::Dict{String, SimMetrics}; h = 2000, w = 1400)
     show(canvas_1)
     show(text_label)
 end
-
-display_data(test_data_sweep_metrics)
