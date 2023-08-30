@@ -16,6 +16,8 @@ compute_quadratic_cost(state::Vector{V}, Q::Matrix{T}) where {V,T} = compute_qua
 
 compute_running_quadratic_cost(states::Vector{V}, Q::Matrix{T}; markup=1.0) where {V,T} = sum([markup^i * compute_quadratic_cost(s, Q) for (i,s) in enumerate(states)])
 
+compute_running_quadratic_cost(state::Union{Vector{Float64}, Vector{QuadExpr}}) = sum(state[i] - state[i-1] for i in 2:length(state))
+
 function compute_total_difference_squared(time_series::Vector{T}) where {T}
     dx = diff(time_series, dims=1)
     n = size(time_series[1])[end]
@@ -23,8 +25,7 @@ function compute_total_difference_squared(time_series::Vector{T}) where {T}
     compute_running_quadratic_cost(dx, Q)
 end    
 
-
-function compute_convenience_value(dynamics::Dynamics, states::Vector{V}, controls::Vector{V}, goal::Vector{T}, inconvenience_weights::VecOrMat{T}) where {T,V}
+function compute_convenience_value(dynamics::UnicycleDynamics, states::Vector{V}, controls::Vector{V}, goal::Vector{T}, inconvenience_weights::VecOrMat{T}) where {T,V}
     position = get_position(dynamics, states)
     speed = get_speed(dynamics, states[1:end-1], controls)
     n = dynamics.state_dim
@@ -35,6 +36,17 @@ function compute_convenience_value(dynamics::Dynamics, states::Vector{V}, contro
     dot(inconvenience_weights, v)
 end
 
+function compute_convenience_value(dynamics::IntegratorDynamics, states::Vector{V}, controls::Vector{V}, goal::Vector{T}, inconvenience_weights::VecOrMat{T}) where {T,V}
+    position = get_position(dynamics, states)
+    speed = get_speed_squared(dynamics, states[1:end-1], controls)
+    n = dynamics.state_dim
+    total_squared_distance = compute_total_difference_squared(position)
+    total_squared_acceleration = compute_running_quadratic_cost(speed)
+    distance_squared_from_goal = compute_quadratic_error_cost(states[end], goal, Matrix{Float64}(I, n, n))
+    v = [total_squared_distance, total_squared_acceleration, distance_squared_from_goal]
+    dot(inconvenience_weights, v)
+    0.0
+end
 
 function collision_avoidance_constraint(radius::T, ego_dyn::Dynamics, ego_state::Vector{T}, other_dyn::Dynamics, other_state::Vector{T}) where {T<:NumberOrVariable}
     ego_position = get_position(ego_dyn, ego_state)

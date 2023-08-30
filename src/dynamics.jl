@@ -255,4 +255,6 @@ get_position(dyn::Dynamics, states::Vector{Vector{T}}) where {T<:NumberOrVariabl
 get_velocity(dyn::Dynamics, states::Vector{Vector{T}}, controls::Vector{Vector{T}}) where {T<:NumberOrVariable} = get_velocity.(Ref(dyn), states, controls)
 get_speed(dyn::IntegratorDynamics, state::Vector{T}, control::Vector{T}) where {T<:NumberOrVariable} = norm(get_velocity(dyn, state, control))
 get_speed(dyn::Dynamics, states::Vector{Vector{T}}, controls::Vector{Vector{T}}) where {T<:NumberOrVariable} = get_speed.(Ref(dyn), states, controls)
+get_speed_squared(dyn::IntegratorDynamics, state::Vector{T}, control::Vector{T}) where {T<:NumberOrVariable} = sum(get_velocity(dyn, state, control).^2)
+get_speed_squared(dyn::Dynamics, states::Vector{Vector{T}}, controls::Vector{Vector{T}}) where {T<:NumberOrVariable} = get_speed_squared.(Ref(dyn), states, controls)
 linearized_dynamics(dyn::Dynamics, states::Vector{Vector{T}}, controls::Vector{Vector{T}}) where {T<:NumberOrVariable} = linearized_dynamics.(Ref(dyn), states, controls)
