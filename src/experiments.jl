@@ -352,7 +352,7 @@ function plot_ttc(ttc::Dict{String, Vector{Float64}})
     ttc_list = ttc["Time to collision"]
     N = length(ttc_list)
 
-    ttc_plot = scatter(1:N, ttc_list, color=:red, markersize=3, label="Time to Collision", ylabel="Projected time to collision (s)", xlabel="Simulation timepoint", title="Time to collision plot", margin=5mm)
+    ttc_plot = scatter(1:N, ttc_list, color=:red, markersize=3, label="Time to Collision", ylabel="Projected time to collision (s)", xlabel="Simulation timepoint", title="Time to collision plot", margin=5mm, ylims=[-1, 31])
 
     ttc_plot
 end
@@ -362,7 +362,7 @@ function plot_θ(θs::Dict{String, Vector{Float64}})
     other_θs = θs["Other θ"]
     N = length(ego_θs)
 
-    θ_plot = plot(1:N, ego_θs, color=:blue, linewidth=2, label="Ego θ", xlabel="Simulation timepoint", ylabel="θ (rad)", title="θ Plot", margin=5mm)
+    θ_plot = plot(1:N, ego_θs, color=:blue, linewidth=2, label="Ego θ", xlabel="Simulation timepoint", ylabel="θ (rad)", title="θ Plot", margin=5mm, ylims=[-0.1, π+0.1])
     plot!(θ_plot, 1:N, other_θs, color=:red, linewidth=2, label="Other θ")
 
     θ_plot
@@ -373,7 +373,7 @@ function plot_dθ_dt(dθ_dts::Dict{String, Vector{Float64}})
     other_dθ_dts = dθ_dts["Other dθ/dt"]
     N = length(ego_dθ_dts)
 
-    dθ_dt_plot = plot(1:N, ego_dθ_dts, color=:blue, linewidth=2, label="Ego dθ/dt", xlabel="Simulation timepoint", ylabel="dθ/dt (rad)", title="dθ/dt Plot", margin=5mm)
+    dθ_dt_plot = plot(1:N, ego_dθ_dts, color=:blue, linewidth=2, label="Ego dθ/dt", xlabel="Simulation timepoint", ylabel="dθ/dt (rad)", title="dθ/dt Plot", margin=5mm, ylims=[-0.1, 1.5])
     plot!(dθ_dt_plot, 1:N, other_dθ_dts, color=:red, linewidth=2, label="Other dθ/dt")
 
     dθ_dt_plot
@@ -481,8 +481,8 @@ function display_data(sim_sweep::Dict{String, SimMetrics}; h = 2000, w = 1400)
     data = [
     ("<u>Sim $(n) Metrics</u>", ""),
     (" ", " "),
-    ("Ego Average Control Effort = ", "$(round(sim_sweep["Run $(n)"].control_effort["Ego Avg Control Effort"], sigdigits=4))"),
-    ("Other Average Control Effort = ", "$(round(sim_sweep["Run $(n)"].control_effort["Other Avg Control Effort"], sigdigits=4))"),
+    ("Ego Average Acceleration = ", "$(round(sim_sweep["Run $(n)"].avg_accel["ego average acceleration"], sigdigits=4))"),
+    ("Other Average Acceleration = ", "$(round(sim_sweep["Run $(n)"].avg_accel["other average acceleration"], sigdigits=4))"),
     ("", ""),
     ("Ego PI = ", "$(round(sim_sweep["Run $(n)"].PI["ego PI"], sigdigits=4))"),
     ("Other PI = ", "$(round(sim_sweep["Run $(n)"].PI["other PI"], sigdigits=4))"),
@@ -515,8 +515,8 @@ function display_data(sim_sweep::Dict{String, SimMetrics}; h = 2000, w = 1400)
         data = [
             ("<u>Sim $(n) Metrics</u>", ""),
             (" ", " "),
-            ("Ego Average Control Effort = ", "$(round(sim_sweep["Run $(n)"].control_effort["Ego Avg Control Effort"], sigdigits=4))"),
-            ("Other Average Control Effort = ", "$(round(sim_sweep["Run $(n)"].control_effort["Other Avg Control Effort"], sigdigits=4))"),
+            ("Ego Average Acceleration = ", "$(round(sim_sweep["Run $(n)"].avg_accel["ego average acceleration"], sigdigits=4))"),
+            ("Other Average Acceleration = ", "$(round(sim_sweep["Run $(n)"].avg_accel["other average acceleration"], sigdigits=4))"),
             ("", ""),
             ("Ego PI = ", "$(round(sim_sweep["Run $(n)"].PI["ego PI"], sigdigits=4))"),
             ("Other PI = ", "$(round(sim_sweep["Run $(n)"].PI["other PI"], sigdigits=4))"),
