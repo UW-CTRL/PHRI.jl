@@ -86,3 +86,21 @@ function compute_path_length(path::Vector{Vector{Float64}})
     N = length(path[:, 1])
     l = sum(norm(path[i, :] - path[i-1, :]) for i in 2:N)
 end
+
+function accel_to_dynamically_extended_unicycle(accel::Vector{Float64}, θ::Float64, v::Vector{Float64})
+    if norm(v) == 0. || norm(accel) == 0.
+        a = norm(accel)
+        ω = 0.0
+        control = [ω, a]
+    elseif norm(v) <= 0.1
+        a = norm(accel)
+        ω = dot(accel, v) / (norm(accel) * norm(v))
+        control = [ω, a]
+    else
+        v = norm(v)
+        a, ω = [cos(θ) sin(θ); -sin(θ) / v cos(θ) / v] * accel
+        control = [ω, a]
+    end
+
+    control
+end
