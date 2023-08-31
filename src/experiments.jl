@@ -79,6 +79,26 @@ function simulation_sweep(ego_ip::InteractionPlanner, other_ip::InteractionPlann
     runs_dict
 end
 
+function run_experiment(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, save_path=""::String)
+    start_time = time()
+    println("-" ^ 80)
+    println("Running Simulations")
+    println("-" ^ 80)
+    sweep_data = simulation_sweep(ego_ip, other_ip, sim_horizon, ego_boundary_conditions, other_boundary_conditions)
+    println("-" ^ 80)
+    println("Evaluating Simulations")
+    println("-" ^ 80)
+    metrics = evaluate_sim(sweep_data)
+    end_time = time()
+    if save_path != ""
+        serialize(save_path, metrics)
+    end
+
+    print("Experiment finished in $(end_time - start_time)")
+
+    metrics
+end
+
 function compute_average_control_effort(sim_data::SimData)
     sim_horizon = length(sim_data.ego_states[:, 1])
     ego_us = sim_data.ego_controls

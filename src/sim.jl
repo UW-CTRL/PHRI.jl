@@ -110,6 +110,11 @@ end
 
 
 function simulate_human_social_forces(ego_ip, other_dyn::DoubleIntegrator2D, other_initial_state, other_goal_state, sim_horizon::Int64; ibr_iterations=3::Int64, leader="ego"::String, p=2., q=2., τ=2., ψ=pi/6, c=0.3)
+    # for Ego IP, the other_planner must be unicycle
+    print(typeof(ego_ip.other_planner.incon.hps.dynamics))
+    if typeof(ego_ip.other_planner.incon.hps.dynamics) != Unicycle{Float64}
+        throw(TypeError(simulate_human_social_forces, "Incorrect dynamics type for 'other_planner' in 'ego_ip", Unicycle{Float64}, typeof(ego_ip.other_planner.incon.hps.dynamics)))
+    end
 
     ego_dyn = ego_ip.ego_planner.incon.hps.dynamics
 
@@ -145,5 +150,11 @@ function simulate_human_social_forces(ego_ip, other_dyn::DoubleIntegrator2D, oth
         other_controls[i] = other_control
 
     end
+
+    ego_traj = vector_of_vectors_to_matrix(ego_traj)
+    ego_controls = vector_of_vectors_to_matrix(ego_controls)
+    other_traj = vector_of_vectors_to_matrix(other_traj)
+    other_controls = vector_of_vectors_to_matrix(other_controls)
+
     ego_traj, ego_controls, other_traj, other_controls
 end
