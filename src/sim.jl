@@ -141,3 +141,84 @@ function simulate_human_social_forces(ego_ip, other_dyn::DoubleIntegrator2D, oth
     end
     ego_traj, ego_controls, other_traj, other_controls
 end
+
+function simulate_hj(ego_hps::PlannerHyperparameters, other_ip::InteractionPlanner, ego_initial_state::Vector{Float64}, ego_goal_state::Vector{Float64}, sim_horizon::Int64; ibr_iterations=3::Int64, leader="ego"::String, verbose=false::Bool)
+    # Given the IP problem setup of the ego agent and other agent
+    # initialize matrices for saving the paths
+
+    # HJIdata = matread("../hj_cache/DynamicallyExtendedUnicycle_VO_40_40_10_12_12.mat")
+    HJIdata = matread("../hj_cache/DynamicallyExtendedUnicycle_VO_50_50_10_20_20.mat")
+
+    V_mat = HJIdata["V"]
+    V_mat = [V_mat;;;V_mat[:,:,1:1,:,:]]
+    grid_knots = tuple((x -> convert(Vector{Float32}, vec(x))).(HJIdata["grid_knots"])...)
+    push!(grid_knots[3], -grid_knots[3][1])
+    global V = interpolate(Float32, Float32, grid_knots, V_mat, Gridded(Linear()));
+
+    ego_dyn = ego_hps.dynamics
+    other_dyn = other_ip.ego_planner.incon.hps.dynamics
+
+    ego_traj = Vector{Vector{Float64}}(undef, sim_horizon + 1)
+    ego_controls = Vector{Vector{Float64}}(undef, sim_horizon)
+    other_traj = Vector{Vector{Float64}}(undef, sim_horizon + 1)
+    other_controls = Vector{Vector{Float64}}(undef, sim_horizon)
+    ego_desired_controls = Vector{Vector{Float64}}(undef, sim_horizon)
+
+    ego_traj[1] = ego_initial_state
+    other_traj[1] = other_ip.ego_planner.incon.opt_params.initial_state
+
+    ego_solve_times = Vector{Float64}(undef, sim_horizon)
+    other_solve_times = Vector{Float64}(undef, sim_horizon)
+
+    VO_QP = construct_VO_QP_base(ego_dyn, [0.; 0.])
+
+    # Uses MPC function to simulate to a given time horizon
+    for i in 1:(sim_horizon)
+
+        ego_state = ego_traj[i]
+        other_state = other_traj[i]
+        # solve for the next iteration
+
+        ego_opt_params_ = PlannerOptimizerParams(ego_dyn, ego_hps, ego_state, ego_goal_state, "ECOS")
+        ego_ideal_planner_ = IdealProblem(ego_dyn, ego_hps, ego_opt_params_)
+        solve(ego_ideal_planner_)
+        ego_desired_control = ego_ideal_planner_.opt_params.previous_controls[1, :][1]
+
+        other_position = get_position(other_dyn, other_state)
+        if i == 1
+            other_velocity = get_velocity(other_dyn, other_state, zeros(Float64, other_dyn.ctrl_dim))[:]
+        else
+            other_velocity = get_velocity(other_dyn, other_state, other_controls[i-1])[:]
+        end
+        
+        rel_state = relative_state(ego_dyn, ego_state, other_position, other_velocity)
+
+        ego_control, ϵ, ∇V, f0, B, V_min= minimally_invasive_velocity_obstacles(VO_QP, 
+        ego_dyn,
+        ego_state, 
+        ego_desired_control,
+        [other_position],
+        [other_velocity]
+)
+
+        other_control = mpc_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
+
+        ego_state = step(ego_dyn, ego_state, ego_control)
+        other_state = step(other_dyn, other_state, other_control)
+
+        ego_traj[i+1] = ego_state
+        other_traj[i+1] = other_state
+        ego_controls[i] = ego_control
+        other_controls[i] = other_control
+        ego_desired_controls[i] = ego_desired_control
+
+    end
+
+    # cast vector of vectors to matrix for easier plotting
+    ego_traj = vector_of_vectors_to_matrix(ego_traj)
+    ego_controls = vector_of_vectors_to_matrix(ego_controls)
+    other_traj = vector_of_vectors_to_matrix(other_traj)
+    other_controls = vector_of_vectors_to_matrix(other_controls)
+
+    ego_traj, ego_controls, other_traj, other_controls, ego_desired_controls
+end

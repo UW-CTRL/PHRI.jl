@@ -60,3 +60,14 @@ function mohrs_circle_states(dyn::DynamicallyExtendedUnicycle, initial_start_sta
     end
     states_list
 end
+
+function wrap2pi(θ)
+    θ_ = mod(θ, 2π)
+    if θ_ > π
+        return -2*π + θ_
+    elseif θ_ < -π
+        return θ_ + 2 * π
+    else
+        return θ_
+    end
+end
