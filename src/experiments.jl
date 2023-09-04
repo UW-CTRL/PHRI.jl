@@ -232,7 +232,7 @@ function compute_path_irregularity_index(sim_data::SimData)
         other_ideal_velocity = get_velocity(other_dyn, other_state, other_control)
 
         if norm(other_velocities[i]) * norm(other_ideal_velocity) != 0
-            other_PI += acos(dot(other_velocities[i], other_ideal_velocity) / (norm(other_velocities[i]) * norm(other_ideal_velocity)))
+            other_PI += acos(round(dot(other_velocities[i], other_ideal_velocity) / (norm(other_velocities[i]) * norm(other_ideal_velocity)), digits=4))
         end
 
         other_ideal_problem = nothing
