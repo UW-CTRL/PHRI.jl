@@ -103,4 +103,15 @@ function accel_to_dynamically_extended_unicycle(accel::Vector{Float64}, θ::Floa
     end
 
     control
-end
+end 
+      
+function wrap2pi(θ)
+    θ_ = mod(θ, 2π)
+    if θ_ > π
+        return -2*π + θ_
+    elseif θ_ < -π
+        return θ_ + 2 * π
+    else
+        return θ_
+    end
+end   
