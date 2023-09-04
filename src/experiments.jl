@@ -216,11 +216,7 @@ function compute_path_irregularity_index(sim_data::SimData)
         ego_ideal_velocity = get_velocity(ego_dyn, ego_state, ego_control)
 
         if norm(ego_velocities[i]) * norm(ego_ideal_velocity) != 0
-            if dot(ego_velocities[i], ego_ideal_velocity) > 1.
-                ego_PI += 0.
-            else
-                ego_PI += acos(round(dot(ego_velocities[i], ego_ideal_velocity) / (norm(ego_velocities[i]) * norm(ego_ideal_velocity)), digits=4))
-            end
+            ego_PI += acos(round(dot(ego_velocities[i], ego_ideal_velocity) / (norm(ego_velocities[i]) * norm(ego_ideal_velocity)), digits=4))
         end
 
         ego_ideal_problem = nothing
