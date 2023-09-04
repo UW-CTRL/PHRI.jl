@@ -75,20 +75,21 @@ function PlannerOptimizerParams(dyn::Dynamics, hp::PlannerHyperparameters, solve
 end
 
 # initialize planner parameters with straight line trajectory
-function PlannerOptimizerParams(dyn::Dynamics, hp::PlannerHyperparameters, start_position::Vector{T}, end_position::Vector{T}, solver::String) where {T}
+function PlannerOptimizerParams(dyn::Dynamics, hp::PlannerHyperparameters, start_state::Vector{T}, end_state::Vector{T}, solver::String) where {T}
     # initialize planner parameters / allocation space
     n = dyn.state_dim
     m = dyn.ctrl_dim
     N = hp.time_horizon
     p = 2 # size of position dimension
     inconvenience_budget = 1.  # arbitrary number
-
+    start_position = get_position(dyn, start_state)
+    end_position = get_position(dyn, end_state)
     # use straight line trajectory
     previous_states_, previous_controls_ = initial_straight_trajectory(dyn, start_position, end_position, dyn.velocity_max * 0.75, hp.time_horizon)
     previous_states = matrix_to_vector_of_vectors(previous_states_)
     previous_controls = matrix_to_vector_of_vectors(previous_controls_)
-    initial_state = previous_states[1]
-    goal_state = previous_states[end]
+    initial_state = start_state
+    goal_state = end_state
 
     ABCs = linearized_dynamics(dyn, previous_states[1:N], previous_controls[1:N])
     As = [Matrix{Float64}(undef, n, n) for i in 1:hp.time_horizon]
@@ -109,20 +110,21 @@ function PlannerOptimizerParams(dyn::Dynamics, hp::PlannerHyperparameters, start
     return PlannerOptimizerParams(As, Bs, Cs, Gs, Hs, inconvenience_budget, initial_state, goal_state, previous_states, previous_controls, other_positions, solver)
 end
 
-function PlannerOptimizerParams(dyn::Dynamics, hps::PlannerHyperparameters, start_position::Vector{T}, end_position::Vector{T}, other_positions::Vector{Vector{T}}, solver::String) where {T}
+function PlannerOptimizerParams(dyn::Dynamics, hps::PlannerHyperparameters, start_state::Vector{T}, end_state::Vector{T}, other_positions::Vector{Vector{T}}, solver::String) where {T}
     # initialize planner parameters / allocation space
     n = dyn.state_dim
     m = dyn.ctrl_dim
     N = hps.time_horizon
     p = 2 # size of position dimension
     inconvenience_budget = 1.  # arbitrary number
-
+    start_position = get_position(dyn, start_state)
+    end_position = get_position(dyn, end_state)
     # use straight line trajectory
     previous_states_, previous_controls_ = initial_straight_trajectory(dyn, start_position, end_position, dyn.velocity_max * 0.75, hps.time_horizon)
     previous_states = matrix_to_vector_of_vectors(previous_states_)
     previous_controls = matrix_to_vector_of_vectors(previous_controls_)
-    initial_state = previous_states[1]
-    goal_state = previous_states[end]
+    initial_state = start_state
+    goal_state = end_states
 
     ABCs = linearized_dynamics(dyn, previous_states[1:N], previous_controls[1:N])
     As = [Matrix{Float64}(undef, n, n) for i in 1:hps.time_horizon]
@@ -620,8 +622,8 @@ function InteractionPlanner(ego_hps::PlannerHyperparameters,
     # setting up ego ideal planner
     ego_opt_params = PlannerOptimizerParams(ego,
                         ego_hps,
-                        get_position(ego, ego_initial_state),
-                        get_position(ego, ego_goal_state),
+                        ego_initial_state,
+                        ego_goal_state,
                         solver
                         )
     ego_opt_params.initial_state = ego_initial_state
@@ -631,8 +633,8 @@ function InteractionPlanner(ego_hps::PlannerHyperparameters,
     # setting up other ideal planner
     other_opt_params = PlannerOptimizerParams(other,
                         other_hps,
-                        get_position(other, other_initial_state),
-                        get_position(other, other_goal_state),
+                        other_initial_state,
+                        other_goal_state,
                         solver
                         )
     other_opt_params.initial_state = other_initial_state
