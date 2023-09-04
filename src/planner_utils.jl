@@ -16,6 +16,8 @@ compute_quadratic_cost(state::Vector{V}, Q::Matrix{T}) where {V,T} = compute_qua
 
 compute_running_quadratic_cost(states::Vector{V}, Q::Matrix{T}; markup=1.0) where {V,T} = sum([markup^i * compute_quadratic_cost(s, Q) for (i,s) in enumerate(states)])
 
+compute_running_quadratic_cost(state::Union{Vector{Float64}, Vector{QuadExpr}}) = sum(state[i] - state[i-1] for i in 2:length(state))
+
 function compute_total_difference_squared(time_series::Vector{T}) where {T}
     dx = diff(time_series, dims=1)
     n = size(time_series[1])[end]
@@ -23,8 +25,7 @@ function compute_total_difference_squared(time_series::Vector{T}) where {T}
     compute_running_quadratic_cost(dx, Q)
 end    
 
-
-function compute_convenience_value(dynamics::Dynamics, states::Vector{V}, controls::Vector{V}, goal::Vector{T}, inconvenience_weights::VecOrMat{T}) where {T,V}
+function compute_convenience_value(dynamics::UnicycleDynamics, states::Vector{V}, controls::Vector{V}, goal::Vector{T}, inconvenience_weights::VecOrMat{T}) where {T,V}
     position = get_position(dynamics, states)
     speed = get_speed(dynamics, states[1:end-1], controls)
     n = dynamics.state_dim
@@ -35,6 +36,17 @@ function compute_convenience_value(dynamics::Dynamics, states::Vector{V}, contro
     dot(inconvenience_weights, v)
 end
 
+function compute_convenience_value(dynamics::IntegratorDynamics, states::Vector{V}, controls::Vector{V}, goal::Vector{T}, inconvenience_weights::VecOrMat{T}) where {T,V}
+    position = get_position(dynamics, states)
+    speed = get_speed_squared(dynamics, states[1:end-1], controls)
+    n = dynamics.state_dim
+    total_squared_distance = compute_total_difference_squared(position)
+    total_squared_acceleration = compute_running_quadratic_cost(speed)
+    distance_squared_from_goal = compute_quadratic_error_cost(states[end], goal, Matrix{Float64}(I, n, n))
+    v = [total_squared_distance, total_squared_acceleration, distance_squared_from_goal]
+    dot(inconvenience_weights, v)
+    0.0
+end
 
 function collision_avoidance_constraint(radius::T, ego_dyn::Dynamics, ego_state::Vector{T}, other_dyn::Dynamics, other_state::Vector{T}) where {T<:NumberOrVariable}
     ego_position = get_position(ego_dyn, ego_state)
@@ -97,7 +109,7 @@ function add_constant_velocity_agent(problem::InconvenienceProblem, constant_vel
 
     for t in 1:N+1
         for i in 1:N_velo_agents
-            model[Symbol("constant_velo_avoidance_agent_$(i)_$(t)")] = @constraint(model, dot(constant_velo_Gs[i][t], ego_ps[t]) + constant_velo_Hs[i][t] .>= -model[:ϵ], base_name="constant_velo_avoidance_agent_$(i)_$(t)")
+            model[Symbol("constant_velo_avoidance_agent_$(i)_$(t)")] = @constraint(model, dot(constant_velo_Gs[i][t], ego_ps[t]) + constant_velo_Hs[i][t] .>= -model[:ϵ][t], base_name="constant_velo_avoidance_agent_$(i)_$(t)")
         end
     end      
 end
@@ -109,4 +121,82 @@ function get_constant_velocity_agent_positions(problem::Problem, constant_velo_a
     velo_vector = constant_velo_agent.velo
 
     positions = [pos + velo_vector * dt * i for i in 0:N]
+end
+
+function get_constant_velocity_agent_positions(time_horizon, dt, constant_velo_agent::ConstantVeloAgent)
+    N = time_horizon
+    pos = constant_velo_agent.pos
+    velo_vector = constant_velo_agent.velo
+
+    positions = [pos + velo_vector * dt * i for i in 0:N]
+end
+
+struct Wall
+    variable::String
+    m::Union{Float64, Int64, Nothing}
+    b::Union{Float64, Int64, Nothing}
+    inequality_condition::String
+end
+
+function wall_constraint(ip::InteractionPlanner, wall::Wall, constraint_name::String)
+    inequality_condition = wall.inequality_condition
+
+    if inequality_condition != "greater" && inequality_condition != "less"
+        throw(ArgumentError("Must input 'greater' or 'less' for inequality_condition, passed '$(inequality_condition)'"))
+    end
+
+    ego_model = ip.ego_planner.incon.model
+    other_model = ip.other_planner.incon.model
+    radius = ip.ego_planner.incon.hps.collision_radius
+
+    if wall.variable == "x"
+        if inequality_condition == "greater"
+            ego_model[Symbol(constraint_name)] = @constraint(ego_model, ego_model[:x][:, 1] .>= ego_model[:x][:, 2] * wall.m + wall.b + radius)
+            other_model[Symbol(constraint_name)] = @constraint(other_model, other_model[:x][:, 1] .>= other_model[:x][:, 2] * wall.m + wall.b + radius)
+        else
+            ego_model[Symbol(constraint_name)] = @constraint(ego_model, ego_model[:x][:, 1] .<= ego_model[:x][:, 2] * wall.m + wall.b - radius)
+            other_model[Symbol(constraint_name)] = @constraint(other_model, other_model[:x][:, 1] .<= other_model[:x][:, 2] * wall.m + wall.b - radius)
+
+        end
+    elseif wall.variable == "y"
+        if inequality_condition == "greater"
+            ego_model[Symbol(constraint_name)] = @constraint(ego_model, ego_model[:x][:, 2] .>= ego_model[:x][:, 1] * wall.m + wall.b + radius)
+            other_model[Symbol(constraint_name)] = @constraint(other_model, other_model[:x][:, 2] .>= other_model[:x][:, 1] * wall.m + wall.b + radius)
+        else
+            ego_model[Symbol(constraint_name)] = @constraint(ego_model, ego_model[:x][:, 2] .<= ego_model[:x][:, 1] * wall.m + wall.b - radius)
+            other_model[Symbol(constraint_name)] = @constraint(other_model, other_model[:x][:, 2] .<= other_model[:x][:, 1] * wall.m + wall.b - radius)
+
+        end
+    else
+        throw(ArgumentError("Invalid variable. Must pass 'x' or 'y', passed '$(constraint_variable)'"))
+    end
+end
+
+function wall_constraint(problem::InconvenienceProblem, wall::Wall, constraint_name::String)
+    inequality_condition = wall.inequality_condition
+
+    if inequality_condition != "greater" && inequality_condition != "less"
+        throw(ArgumentError("Must input 'greater' or 'less' for inequality_condition, passed '$(inequality_condition)'"))
+    end
+
+    model = problem.model
+    radius = problem.hps.collision_radius
+
+    if wall.variable == "x"
+        if inequality_condition == "greater"
+            model[Symbol(constraint_name)] = @constraint(model, model[:x][:, 1] .>= model[:x][:, 2] * wall.m + wall.b + radius)
+        else
+            model[Symbol(constraint_name)] = @constraint(model, model[:x][:, 1] .<= model[:x][:, 2] * wall.m + wall.b - radius)
+
+        end
+    elseif wall.variable == "y"
+        if inequality_condition == "greater"
+            model[Symbol(constraint_name)] = @constraint(model, model[:x][:, 2] .>= model[:x][:, 1] * wall.m + wall.b + radius)
+        else
+            model[Symbol(constraint_name)] = @constraint(model, model[:x][:, 2] .<= model[:x][:, 1] * wall.m + wall.b - radius)
+
+        end
+    else
+        throw(ArgumentError("Invalid variable. Must pass 'x' or 'y', passed '$(constraint_variable)'"))
+    end
 end

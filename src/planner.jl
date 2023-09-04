@@ -19,6 +19,7 @@ end
     Qt::Array{T}
     markup::T
     collision_slack::T
+    collision_markup::T=0.98
     trust_region_weight::T
     inconvenience_weights::VecOrMat{T}
     collision_radius::T
@@ -26,13 +27,13 @@ end
 end
 
 # initialize hyperparameter values
-function PlannerHyperparameters(dyn::Dynamics; time_horizon=20, markup=1.0, collision_slack=1000., trust_region_weight=10., inconvenience_weights=[1. 1. 1.], collision_radius=0.25, inconvenience_ratio=0.1)
+function PlannerHyperparameters(dyn::Dynamics; time_horizon=20, markup=1.0, collision_slack=1000., collision_markup=0.98::Float64, trust_region_weight=10., inconvenience_weights=[1. 1. 1.], collision_radius=0.25, inconvenience_ratio=0.1)
     n = dyn.state_dim
     m = dyn.ctrl_dim
     Q = Matrix{Float64}(I, n, n)
     Qt = Matrix{Float64}(I, n, n)
     R = Matrix{Float64}(I, m, m)
-    return PlannerHyperparameters(dyn, time_horizon, Q, R, Qt, markup, collision_slack, trust_region_weight, inconvenience_weights, collision_radius, inconvenience_ratio)
+    return PlannerHyperparameters(dyn, time_horizon, Q, R, Qt, markup, collision_slack, collision_markup, trust_region_weight, inconvenience_weights, collision_radius, inconvenience_ratio)
 end
 
 # parameters (constants that will need to be updated) of an optimization problem (both inconvenience and ideal)
@@ -148,7 +149,7 @@ mutable struct InconvenienceProblem <: Problem
     model::Model
     xs::Vector{Vector{VariableRef}}
     us::Vector{Vector{VariableRef}}
-    ϵ::VariableRef
+    ϵ::Vector{VariableRef}
     hps::PlannerHyperparameters
     opt_params::PlannerOptimizerParams
 end
@@ -162,7 +163,7 @@ mutable struct IdealProblem <: Problem
 end
 
 # setup inconvenience problem
-function InconvenienceProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
+function InconvenienceProblem(dyn::UnicycleDynamics, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
     n = dyn.state_dim
     m = dyn.ctrl_dim
     N = hps.time_horizon
@@ -178,15 +179,15 @@ function InconvenienceProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_pa
     end
     model[:x] = @variable(model, x[1:N+1,1:dyn.state_dim], base_name="x")
     model[:u] = @variable(model, u[1:N,1:dyn.ctrl_dim], base_name="u")
-    model[:ϵ] = @variable(model, ϵ, base_name="ϵ")
+    model[:ϵ] = @variable(model, ϵ[1:N+1], base_name="ϵ")
     xs = matrix_to_vector_of_vectors(model[:x])
     us = matrix_to_vector_of_vectors(model[:u])
     ps = matrix_to_vector_of_vectors(get_position(dyn, model[:x]))
 
-    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + hps.collision_slack * ϵ^2)
+    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + sum(hps.collision_markup^t * hps.collision_slack * ϵ[t]^2 for t in 1:N))
 
     # slack variable positivity constraint
-    model[:con_ϵ] = @constraint(model, ϵ >= 0)
+    model[:con_ϵ] = @constraint(model, ϵ .>= 0)
 
     # initial state constraint
     model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
@@ -194,10 +195,10 @@ function InconvenienceProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_pa
     # dynamic and collision avoidance constraints
     for t in 1:N
         model[Symbol("linear_dynamics_constraint_$(t)")] = @constraint(model, opt_params.As[t]*xs[t] + opt_params.Bs[t]*us[t] + opt_params.Cs[t] == xs[t+1], base_name="linear_dynamics_constraint_$(t)")
-        model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t] .>= -ϵ, base_name="collision_avoidance_constraint_$(t)")
+        model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t] .>= -ϵ[t], base_name="collision_avoidance_constraint_$(t)")
     end
     t = N+1
-    model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t] .>= -ϵ, base_name="collision_avoidance_constraint_$(t)")
+    model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t] .>= -ϵ[t], base_name="collision_avoidance_constraint_$(t)")
 
     # control and velocity constraints
     for t in 1:N
@@ -212,9 +213,57 @@ function InconvenienceProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_pa
     InconvenienceProblem(model, xs, us, ϵ, hps, opt_params)
 end
 
+function InconvenienceProblem(dyn::IntegratorDynamics, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
+    n = dyn.state_dim
+    m = dyn.ctrl_dim
+    N = hps.time_horizon
+    radius = hps.collision_radius
+    solver = opt_params.solver
+
+    if solver == "ECOS"
+        model = Model(ECOS.Optimizer)
+    elseif solver == "HiGHS"
+        model = Model(HiGHS.Optimizer)
+    elseif solver == "Gurobi"
+        model = Model(() -> Gurobi.Optimizer(GRB_ENV))
+    end
+    model[:x] = @variable(model, x[1:N+1,1:dyn.state_dim], base_name="x")
+    model[:u] = @variable(model, u[1:N,1:dyn.ctrl_dim], base_name="u")
+    model[:ϵ] = @variable(model, ϵ[1:N+1], base_name="ϵ")
+    xs = matrix_to_vector_of_vectors(model[:x])
+    us = matrix_to_vector_of_vectors(model[:u])
+    ps = matrix_to_vector_of_vectors(get_position(dyn, model[:x]))
+
+    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + sum(hps.collision_markup^t * hps.collision_slack * ϵ[t]^2 for t in 1:N))
+
+    # slack variable positivity constraint
+    model[:con_ϵ] = @constraint(model, ϵ .>= 0)
+
+    # initial state constraint
+    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
+
+    # dynamic and collision avoidance constraints
+    for t in 1:N
+        model[Symbol("linear_dynamics_constraint_$(t)")] = @constraint(model, opt_params.As[t]*xs[t] + opt_params.Bs[t]*us[t] + opt_params.Cs[t] == xs[t+1], base_name="linear_dynamics_constraint_$(t)")
+        model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t] .>= -ϵ[t], base_name="collision_avoidance_constraint_$(t)")
+    end
+    t = N+1
+    model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t] .>= -ϵ[t], base_name="collision_avoidance_constraint_$(t)")
+
+    # control and velocity constraints
+    for t in 1:N
+        model[Symbol("control_constraints_upper_$(t)")] = @constraint(model, us[t] <= dyn.control_max, base_name="control_constraints_upper_$(t)")
+        model[Symbol("control_constraints_lower_$(t)")] = @constraint(model, dyn.control_min <= us[t] , base_name="control_constraints_lower_$(t)")
+        model[Symbol("speed_constraints_upper_$(t)")] = @constraint(model, get_speed_squared(dyn, xs[t], us[t]) .<= dyn.velocity_max^2 , base_name="speed_constraints_upper_$(t)")
+    end
+
+    # inconvenience budget constraint
+    model[:inconvenience_budget] = @constraint(model, compute_convenience_value(dyn, xs, us, opt_params.goal_state, hps.inconvenience_weights) <= opt_params.inconvenience_budget, base_name="inconvenience_budget")
+    InconvenienceProblem(model, xs, us, ϵ, hps, opt_params)
+end
 
 # setup ideal problem
-function IdealProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
+function IdealProblem(dyn::UnicycleDynamics, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
     n = dyn.state_dim
     m = dyn.ctrl_dim
     N = hps.time_horizon
@@ -249,6 +298,47 @@ function IdealProblem(dyn::Dynamics, hps::PlannerHyperparameters, opt_params::Pl
         model[Symbol("control_constraints_lower_$(t)")] = @constraint(model, dyn.control_min <= us[t] , base_name="control_constraints_lower_$(t)")
         model[Symbol("speed_constraints_upper_$(t)")] = @constraint(model, get_speed(dyn, xs[t], us[t]) .<= dyn.velocity_max , base_name="speed_constraints_upper_$(t)")
         model[Symbol("speed_constraints_lower_$(t)")] = @constraint(model, get_speed(dyn, xs[t], us[t]) .>= dyn.velocity_min , base_name="speed_constraints_lower_$(t)")
+    end
+
+    IdealProblem(model, xs, us, hps, opt_params)
+end
+
+function IdealProblem(dyn::IntegratorDynamics, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
+    n = dyn.state_dim
+    m = dyn.ctrl_dim
+    N = hps.time_horizon
+    radius = hps.collision_radius
+    solver = opt_params.solver
+
+    if solver == "ECOS"
+        model = Model(ECOS.Optimizer)
+    elseif solver == "HiGHS"
+        model = Model(HiGHS.Optimizer)
+    elseif solver == "Gurobi"
+        model = Model(() -> Gurobi.Optimizer(GRB_ENV))
+    end
+    
+    model[:x] = @variable(model, x[1:N+1,1:dyn.state_dim], base_name="x")
+    model[:u] = @variable(model, u[1:N,1:dyn.ctrl_dim], base_name="u")
+    xs = matrix_to_vector_of_vectors(model[:x])
+    us = matrix_to_vector_of_vectors(model[:u])
+
+    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))))
+
+    # initial state constraint
+    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
+
+    # dynamic constraints
+    for t in 1:N
+        model[Symbol("linear_dynamics_constraint_$(t)")] = @constraint(model, opt_params.As[t]*xs[t] + opt_params.Bs[t]*us[t] + opt_params.Cs[t] == xs[t+1], base_name="linear_dynamics_constraint_$(t)")
+    end
+
+    # control and speed constraints
+    for t in 1:N
+        model[Symbol("control_constraints_upper_$(t)")] = @constraint(model, us[t] <= dyn.control_max, base_name="control_constraints_upper_$(t)")
+        model[Symbol("control_constraints_lower_$(t)")] = @constraint(model, dyn.control_min <= us[t] , base_name="control_constraints_lower_$(t)")
+        model[Symbol("speed_constraints_upper_$(t)")] = @constraint(model, get_speed_squared(dyn, xs[t], us[t]) .<= dyn.velocity_max^2 , base_name="speed_constraints_upper_$(t)")
+        # model[Symbol("speed_constraints_lower_$(t)")] = @constraint(model, get_speed_squared(dyn, xs[t], us[t]) .>= dyn.velocity_min , base_name="speed_constraints_lower_$(t)")
     end
 
     IdealProblem(model, xs, us, hps, opt_params)
@@ -359,7 +449,7 @@ function update_problem!(problem::InconvenienceProblem)
     delete_and_unregister(model, :initial_state)
     model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
 
-    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + hps.collision_slack * model[:ϵ]^2)
+    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + sum(hps.collision_markup^t * hps.collision_slack * model[:ϵ][t]^2 for t in 1:N+1))
 
     # update dynamics constraints
     for (t, (A,B,C)) in enumerate(zip(opt_params.As, opt_params.Bs, opt_params.Cs))
@@ -370,7 +460,7 @@ function update_problem!(problem::InconvenienceProblem)
     # update collision avoidance constraints
     for (t, (G, H)) in enumerate(zip(opt_params.Gs, opt_params.Hs))
         delete_and_unregister(model, Symbol("collision_avoidance_constraint_$(t)"))
-        model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t]  .>= -model[:ϵ], base_name="collision_avoidance_constraint_$(t)")
+        model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t]  .>= -model[:ϵ][t], base_name="collision_avoidance_constraint_$(t)")
     end
 
     # update inconvenience budget constraint
@@ -405,7 +495,7 @@ function update_problem!(problem::InconvenienceProblem, constant_velo_agents::Ve
     delete_and_unregister(model, :initial_state)
     model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
 
-    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + hps.collision_slack * model[:ϵ]^2)
+    @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))) + sum(hps.collision_markup^t * hps.collision_slack * model[:ϵ][t]^2 for t in 1:N+1))
 
     # update dynamics constraints
     for (t, (A,B,C)) in enumerate(zip(opt_params.As, opt_params.Bs, opt_params.Cs))
@@ -416,12 +506,11 @@ function update_problem!(problem::InconvenienceProblem, constant_velo_agents::Ve
     # update collision avoidance constraints
     for (t, (G, H)) in enumerate(zip(opt_params.Gs, opt_params.Hs))
         delete_and_unregister(model, Symbol("collision_avoidance_constraint_$(t)"))
+        model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t]  .>= -model[:ϵ][t], base_name="collision_avoidance_constraint_$(t)")
         for i in 1:N_velo_agents
             delete_and_unregister(model, Symbol("constant_velo_avoidance_agent_$(i)_$(t)"))
-            model[Symbol("constant_velo_avoidance_agent_$(i)_$(t)")] = @constraint(model, dot(constant_velo_Gs[i][t], ego_ps[t]) + constant_velo_Hs[i][t] .>= -model[:ϵ], base_name="constant_velo_avoidance_agent_$(i)_$(t)")
+            model[Symbol("constant_velo_avoidance_agent_$(i)_$(t)")] = @constraint(model, dot(constant_velo_Gs[i][t], ego_ps[t]) + constant_velo_Hs[i][t] .>= -model[:ϵ][t], base_name="constant_velo_avoidance_agent_$(i)_$(t)")
         end
-        model[Symbol("collision_avoidance_constraint_$(t)")] = @constraint(model, dot(opt_params.Gs[t], ps[t]) + opt_params.Hs[t]  .>= -model[:ϵ], base_name="collision_avoidance_constraint_$(t)")
-
     end
 
     # update inconvenience budget constraint

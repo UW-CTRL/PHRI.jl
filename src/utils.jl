@@ -6,6 +6,8 @@ vector_of_vectors_to_matrix(vec_of_vec::Vector{Vector{T}}) where {T} = mapreduce
 struct PlannerParams
     hps::PlannerHyperparameters
     opt_params::PlannerOptimizerParams
+    counterpart_hps::PlannerHyperparameters
+    counterpart_opt_params::PlannerOptimizerParams
 end
 
 struct HITLParams
@@ -27,7 +29,8 @@ struct SFMSimParams
 end
 
 struct SimData
-    sim_params
+    sim_params::Union{HITLParams, SFMParams, IPSimParams}
+    solve_times::Tuple{Vector{Float64}, Union{Vector{Float64}, Nothing}}
     ego_states::Matrix{Float64}
     ego_controls::Matrix{Float64}
     other_states::Matrix{Float64}
@@ -61,6 +64,47 @@ function mohrs_circle_states(dyn::DynamicallyExtendedUnicycle, initial_start_sta
     states_list
 end
 
+function compute_path_length(path::Matrix{Float64})
+    if length(path[1, :]) >= 2
+        path = path[:, 1:2]
+    else
+        throw(ArgumentError("Invalid Path --- must have at least two dimensions"))
+    end
+
+    N = length(path[:, 1])
+    print(N)
+    l = sum(norm(path[i, :] - path[i-1, :]) for i in 2:N)
+end
+
+function compute_path_length(path::Vector{Vector{Float64}})
+    if length(path[1]) >= 2
+        path = vector_of_vectors_to_matrix(path)[:, 1:2]
+    else
+        throw(ArgumentError("Invalid Path --- must have at least two dimensions"))
+    end
+
+    N = length(path[:, 1])
+    l = sum(norm(path[i, :] - path[i-1, :]) for i in 2:N)
+end
+
+function accel_to_dynamically_extended_unicycle(accel::Vector{Float64}, θ::Float64, v::Vector{Float64})
+    if norm(v) == 0. || norm(accel) == 0.
+        a = norm(accel)
+        ω = 0.0
+        control = [ω, a]
+    elseif norm(v) <= 0.1
+        a = norm(accel)
+        ω = dot(accel, v) / (norm(accel) * norm(v))
+        control = [ω, a]
+    else
+        v = norm(v)
+        a, ω = [cos(θ) sin(θ); -sin(θ) / v cos(θ) / v] * accel
+        control = [ω, a]
+    end
+
+    control
+end 
+      
 function wrap2pi(θ)
     θ_ = mod(θ, 2π)
     if θ_ > π
@@ -70,4 +114,4 @@ function wrap2pi(θ)
     else
         return θ_
     end
-end
+end   
