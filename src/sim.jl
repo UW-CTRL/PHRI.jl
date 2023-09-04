@@ -212,14 +212,14 @@ function simulate_hj(ego_hps::PlannerHyperparameters, other_ip::InteractionPlann
     # Given the IP problem setup of the ego agent and other agent
     # initialize matrices for saving the paths
 
-    # HJIdata = matread("../hj_cache/DynamicallyExtendedUnicycle_VO_40_40_10_12_12.mat")
-    HJIdata = matread("../hj_cache/DynamicallyExtendedUnicycle_VO_50_50_10_20_20.mat")
+    # # HJIdata = matread("../hj_cache/DynamicallyExtendedUnicycle_VO_40_40_10_12_12.mat")
+    # HJIdata = matread("../hj_cache/DynamicallyExtendedUnicycle_VO_50_50_10_20_20.mat")
 
-    V_mat = HJIdata["V"]
-    V_mat = [V_mat;;;V_mat[:,:,1:1,:,:]]
-    grid_knots = tuple((x -> convert(Vector{Float32}, vec(x))).(HJIdata["grid_knots"])...)
-    push!(grid_knots[3], -grid_knots[3][1])
-    global V = interpolate(Float32, Float32, grid_knots, V_mat, Gridded(Linear()));
+    # V_mat = HJIdata["V"]
+    # V_mat = [V_mat;;;V_mat[:,:,1:1,:,:]]
+    # grid_knots = tuple((x -> convert(Vector{Float32}, vec(x))).(HJIdata["grid_knots"])...)
+    # push!(grid_knots[3], -grid_knots[3][1])
+    # global V = interpolate(Float32, Float32, grid_knots, V_mat, Gridded(Linear()));
 
     ego_dyn = ego_hps.dynamics
     other_dyn = other_ip.ego_planner.incon.hps.dynamics
