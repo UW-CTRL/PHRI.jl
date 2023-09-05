@@ -205,37 +205,16 @@ function compute_path_irregularity_index(sim_data::SimData)
     other_velocities = get_velocity(other_dyn, matrix_to_vector_of_vectors(other_xs)[1:end-1], matrix_to_vector_of_vectors(other_us))
 
     for i in 1:sim_horizon-1
-        # ego PI
-        ego_opt_params = PlannerOptimizerParams(ego_dyn, ego_hps, ego_xs[i, :], ego_goal, "ECOS")
-        ego_ideal_problem = IdealProblem(ego_dyn, ego_hps, ego_opt_params)
-        solve(ego_ideal_problem, iterations=3)
-
-        ego_state = vector_of_vectors_to_matrix(ego_ideal_problem.opt_params.previous_states)[1, :]
-        ego_control = vector_of_vectors_to_matrix(ego_ideal_problem.opt_params.previous_controls)[1, :]
-
-        ego_ideal_velocity = get_velocity(ego_dyn, ego_state, ego_control)
-
-        if norm(ego_velocities[i]) * norm(ego_ideal_velocity) != 0
-            ego_PI += acos(round(dot(ego_velocities[i], ego_ideal_velocity) / (norm(ego_velocities[i]) * norm(ego_ideal_velocity)), digits=4))
+        ego_goal_vector = get_position(ego_dyn, ego_goal - ego_xs[i, :])
+        if norm(ego_velocities[i]) * norm(ego_goal_vector) != 0
+            ego_PI += acos(round(dot(ego_velocities[i], ego_goal_vector) / (norm(ego_velocities[i]) * norm(ego_goal_vector)), digits=4))
         end
-
-        ego_ideal_problem = nothing
 
         # other PI
-        other_opt_params = PlannerOptimizerParams(other_dyn, other_hps, other_xs[i, :], other_goal, "ECOS")
-        other_ideal_problem = IdealProblem(other_dyn, other_hps, other_opt_params)
-        solve(other_ideal_problem, iterations=3)
-
-        other_state = vector_of_vectors_to_matrix(other_ideal_problem.opt_params.previous_states)[1, :]
-        other_control = vector_of_vectors_to_matrix(other_ideal_problem.opt_params.previous_controls)[1, :]
-
-        other_ideal_velocity = get_velocity(other_dyn, other_state, other_control)
-
-        if norm(other_velocities[i]) * norm(other_ideal_velocity) != 0
-            other_PI += acos(round(dot(other_velocities[i], other_ideal_velocity) / (norm(other_velocities[i]) * norm(other_ideal_velocity)), digits=4))
+        other_goal_vector = get_position(other_dyn, other_goal - other_xs[i, :])
+        if norm(other_velocities[i]) * norm(other_goal_vector) != 0
+            other_PI += acos(round(dot(other_velocities[i], other_goal_vector) / (norm(other_velocities[i]) * norm(other_goal_vector)), digits=4))
         end
-
-        other_ideal_problem = nothing
     end
 
     Dict("ego PI" => ego_PI, "other PI" => other_PI)
