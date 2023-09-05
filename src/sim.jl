@@ -303,5 +303,5 @@ function simulate_hj(ego_hps::PlannerHyperparameters, other_ip::InteractionPlann
     other_traj = vector_of_vectors_to_matrix(other_traj)
     other_controls = vector_of_vectors_to_matrix(other_controls)
 
-    ego_traj, ego_controls, other_traj, other_controls, ego_desired_controls
+    ego_traj, ego_controls, other_traj, other_controls
 end
