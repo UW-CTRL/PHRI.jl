@@ -58,7 +58,7 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
     ego_traj, ego_controls, other_traj, other_controls, (ego_solve_times, other_solve_times)
 end
 
-function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon::Int64, constant_velo_agents::ConstantVeloAgent...; ibr_iterations=3::Int64, leader="ego"::String)
+function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon::Int64, constant_velo_agents::ConstantVeloAgent...; ibr_iterations=3::Int64, leader="ego"::String, seed=010100000111001001101111011000010110001101110100011010010111011001100101010010000101001001001001)
     # Given the IP problem setup of the ego agent and other agent
     # initialize matrices for saving the paths
 
@@ -116,7 +116,7 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
 end
 
 
-function simulate_human_social_forces(ego_dyn::DoubleIntegrator2D, other_ip, ego_initial_state, ego_goal_state, sim_horizon::Int64; ibr_iterations=3::Int64, leader="ego"::String, p=2., q=2., τ=2., ψ=pi/6, c=0.3)
+function simulate_human_social_forces(ego_dyn::DoubleIntegrator2D, other_ip, ego_initial_state, ego_goal_state, sim_horizon::Int64; ibr_iterations=3::Int64, leader="ego"::String, p=2., q=2., τ=2., ψ=pi/6, c=0.3, seed=010100000111001001101111011000010110001101110100011010010111011001100101010010000101001001001001)
     # for Ego IP, the other_planner must be unicycle
     print(typeof(other_ip.other_planner.incon.hps.dynamics))
     if typeof(other_ip.other_planner.incon.hps.dynamics) != Unicycle{Float64}
@@ -170,7 +170,7 @@ function simulate_human_social_forces(ego_dyn::DoubleIntegrator2D, other_ip, ego
     ego_traj, ego_controls, other_traj, other_controls
 end
 
-function simulate_human_social_forces(ego_dyn::DynamicallyExtendedUnicycle, other_ip::InteractionPlanner, ego_initial_state, ego_goal_state, sim_horizon::Int64; ibr_iterations=3::Int64, leader="ego"::String, p=2., q=2., τ=2., ψ=pi/6, c=0.3)
+function simulate_human_social_forces(ego_dyn::DynamicallyExtendedUnicycle, other_ip::InteractionPlanner, ego_initial_state, ego_goal_state, sim_horizon::Int64; ibr_iterations=3::Int64, leader="ego"::String, p=2., q=2., τ=2., ψ=pi/6, c=0.3, seed=010100000111001001101111011000010110001101110100011010010111011001100101010010000101001001001001)
     # for Ego IP, the other_planner must be unicycle
     print(typeof(other_ip.other_planner.incon.hps.dynamics))
     if typeof(other_ip.other_planner.incon.hps.dynamics) != DynamicallyExtendedUnicycle{Float64}
@@ -224,7 +224,7 @@ function simulate_human_social_forces(ego_dyn::DynamicallyExtendedUnicycle, othe
     ego_traj, ego_controls, other_traj, other_controls
 end
 
-function simulate_hj(ego_hps::PlannerHyperparameters, other_ip::InteractionPlanner, ego_initial_state::Vector{Float64}, ego_goal_state::Vector{Float64}, sim_horizon::Int64; ibr_iterations=3::Int64, leader="ego"::String, verbose=false::Bool)
+function simulate_hj(ego_hps::PlannerHyperparameters, other_ip::InteractionPlanner, ego_initial_state::Vector{Float64}, ego_goal_state::Vector{Float64}, sim_horizon::Int64; ibr_iterations=3::Int64, leader="ego"::String, verbose=false::Bool, seed=010100000111001001101111011000010110001101110100011010010111011001100101010010000101001001001001)
     # Given the IP problem setup of the ego agent and other agent
     # initialize matrices for saving the paths
 
