@@ -12,6 +12,7 @@ using Cairo
 
 
 struct SimMetrics
+    sim_data::SimData
     control_effort::Dict{String, Float64}
     PI::Dict{String, Float64}
     avg_accel::Dict{String, Float64}
@@ -20,6 +21,7 @@ struct SimMetrics
     ttc::Dict{String, Vector{Float64}}
     θ::Dict{String, Vector{Float64}}
     dθ_dt::Dict{String, Vector{Float64}}
+    dist_to_goal::Dict{String, Float64}
     time::Dict{String, Any}
     plots::Dict{String, Plots.Plot{Plots.GRBackend}}
 end
@@ -459,6 +461,26 @@ function compute_dθ_dt(sim_data::SimData)
     Dict("Ego dθ/dt" => ego_dθ_dt, "Other dθ/dt" => other_dθ_dt)
 end
 
+function compute_distance_to_goal(sim_data)
+    dt = sim_data.sim_params.ego_planner_params.hps.dynamics.dt
+    sim_horizon = length(sim_data.ego_states[:, 1])
+
+    ego_dyn = sim_data.sim_params.ego_planner_params.hps.dynamics
+    ego_xs = sim_data.ego_states
+    ego_us = sim_data.ego_controls
+    ego_goal = sim_data.sim_params.ego_planner_params.opt_params.goal_state
+
+    other_dyn = sim_data.sim_params.other_planner_params.hps.dynamics
+    other_xs = sim_data.other_states
+    other_us = sim_data.other_controls
+    other_goal = sim_data.sim_params.other_planner_params.opt_params.goal_state
+
+    ego_dist = norm(get_position(ego_dyn, ego_goal - ego_xs[end, :]))
+    other_dist = norm(get_position(other_dyn, other_goal - other_xs[end, :]))
+
+    Dict("ego dist to goal" => ego_dist, "other dist to goal" => other_dist)
+end
+
 function compute_time(sim_data::SimData)
     dt = sim_data.sim_params.ego_planner_params.hps.dynamics.dt
     sim_horizon = length(sim_data.ego_states[:, 1])
@@ -537,7 +559,8 @@ function evaluate_sim(sim_data::SimData)
     plot_dict["dθ/dt"] = plot_dθ_dt(compute_dθ_dt(sim_data))
     plot_dict["Combined Plot"] = combine_sim_data_plots(sim_data)
 
-    metrics = SimMetrics(compute_average_control_effort(sim_data),
+    metrics = SimMetrics(sim_data,
+                        compute_average_control_effort(sim_data),
                         compute_path_irregularity_index(sim_data),
                         compute_average_acceleration_per_segment(sim_data),
                         compute_path_efficiency(sim_data),
@@ -545,6 +568,7 @@ function evaluate_sim(sim_data::SimData)
                         compute_time_to_collision(sim_data),
                         compute_θ(sim_data),
                         compute_dθ_dt(sim_data),
+                        compute_distance_to_goal(sim_data),
                         compute_time(sim_data),
                         plot_dict
     )
@@ -562,7 +586,8 @@ function evaluate_sim(sim_data_sweep::Dict{String, SimData})
         plot_dict["dθ/dt"] = plot_dθ_dt(compute_dθ_dt(sim_data_sweep["Run $(i)"]))
         plot_dict["Combined Plot"] = combine_sim_data_plots(sim_data_sweep["Run $(i)"])
 
-        metrics = SimMetrics(compute_average_control_effort(sim_data_sweep["Run $(i)"]),
+        metrics = SimMetrics(sim_data_sweep["Run $(i)"],
+                            compute_average_control_effort(sim_data_sweep["Run $(i)"]),
                             compute_path_irregularity_index(sim_data_sweep["Run $(i)"]),
                             compute_average_acceleration_per_segment(sim_data_sweep["Run $(i)"]),
                             compute_path_efficiency(sim_data_sweep["Run $(i)"]),
@@ -570,6 +595,7 @@ function evaluate_sim(sim_data_sweep::Dict{String, SimData})
                             compute_time_to_collision(sim_data_sweep["Run $(i)"]),
                             compute_θ(sim_data_sweep["Run $(i)"]),
                             compute_dθ_dt(sim_data_sweep["Run $(i)"]),
+                            compute_distance_to_goal(sim_data_sweep["Run $(i)"]),
                             compute_time(sim_data_sweep["Run $(i)"]),
                             plot_dict
         )
