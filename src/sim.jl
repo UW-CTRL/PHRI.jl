@@ -1,6 +1,7 @@
 include("planner.jl")
+using Random
 
-function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon::Int64; ibr_iterations=3::Int64, leader="ego"::String)
+function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon::Int64; ibr_iterations=3::Int64, leader="ego"::String, seed=010100000111001001101111011000010110001101110100011010010111011001100101010010000101001001001001)
     # Given the IP problem setup of the ego agent and other agent
     # initialize matrices for saving the paths
 
@@ -20,6 +21,7 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
 
     # Uses MPC function to simulate to a given time horizon
     for i in 1:(sim_horizon)
+        Random.seed!(seed + i)
 
         ego_state = ego_traj[i]
         other_state = other_traj[i]
@@ -35,13 +37,15 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
         other_solve_end = time()
         other_solve_times[i] = other_solve_end - other_solve_start
 
+        other_noisy_control = other_control .* (1 .+ randn(2) * 0.05)
+
         ego_state = step(ego_dyn, ego_state, ego_control)
-        other_state = step(other_dyn, other_state, other_control)
+        other_state = step(other_dyn, other_state, other_noisy_control)
 
         ego_traj[i+1] = ego_state
         other_traj[i+1] = other_state
         ego_controls[i] = ego_control
-        other_controls[i] = other_control
+        other_controls[i] = other_noisy_control
 
     end
 
@@ -78,6 +82,7 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
 
     # Uses MPC function to simulate to a given time horizon
     for i in 1:(sim_horizon)
+        Random.seed!(seed + i)
 
         ego_state = ego_traj[i]
         other_state = other_traj[i]
@@ -86,8 +91,10 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
         ego_control = mpc_step(ego_ip, ego_state, other_state, velo_agents, ibr_iterations=ibr_iterations, leader=leader)
         other_control = mpc_step(other_ip, other_state, ego_state, velo_agents, ibr_iterations=ibr_iterations, leader=leader)
 
+        other_noisy_control = other_control .* (1 .+ randn(2) * 0.05)
+
         ego_state = step(ego_dyn, ego_state, ego_control)
-        other_state = step(other_dyn, other_state, other_control)
+        other_state = step(other_dyn, other_state, other_noisy_control)
         for j in 1:N_velo_agents
             copied_constant_velo_agents[j].pos .+= copied_constant_velo_agents[j].velo * dt
         end
@@ -95,7 +102,7 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
         ego_traj[i+1] = ego_state
         other_traj[i+1] = other_state
         ego_controls[i] = ego_control
-        other_controls[i] = other_control
+        other_controls[i] = other_noisy_control
 
     end
 
@@ -128,6 +135,8 @@ function simulate_human_social_forces(ego_dyn::DoubleIntegrator2D, other_ip, ego
 
      # Uses MPC function to simulate to a given time horizon
     for i in 1:(sim_horizon)
+        Random.seed!(seed + i)
+
         ego_state = ego_traj[i]
         other_state = other_traj[i]
         # solve for the next iteration
@@ -137,17 +146,19 @@ function simulate_human_social_forces(ego_dyn::DoubleIntegrator2D, other_ip, ego
         other_control = mpc_step(other_ip, other_state, ego_state_, ibr_iterations=ibr_iterations, leader=leader)
         ego_control = social_forces(ego_dyn, ego_state, ego_goal_state[1:2], [[other_dyn, other_state]], ego_dyn.velocity_max, p=p, q=q, τ=τ, ψ=ψ, c=c)
         # other_control = [0.;0.]
+
+        other_noisy_control = other_control .* (1 .+ randn(2) * 0.05)
         
         # break
         ego_state = step(ego_dyn, ego_state, ego_control)
-        other_state = step(other_dyn, other_state, other_control)
+        other_state = step(other_dyn, other_state, other_noisy_control)
 
         ego_traj[i+1] = ego_state
         other_traj[i+1] = other_state
 
         # println(ego_control)
         ego_controls[i] = ego_control
-        other_controls[i] = other_control
+        other_controls[i] = other_noisy_control
 
     end
 
@@ -179,24 +190,29 @@ function simulate_human_social_forces(ego_dyn::DynamicallyExtendedUnicycle, othe
 
      # Uses MPC function to simulate to a given time horizon
     for i in 1:(sim_horizon)
+        Random.seed!(seed + i)
+
         ego_state = ego_traj[i]
         other_state = other_traj[i]
         # solve for the next iteration
 
         other_control = mpc_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
         ego_forces = social_forces(ego_dyn, ego_state, ego_goal_state[1:2], [[other_dyn, other_state]], ego_dyn.velocity_max, p=p, q=q, τ=τ, ψ=ψ, c=c)
-
         ego_control = accel_to_dynamically_extended_unicycle(ego_forces[1:2], ego_state[3], get_velocity(ego_dyn, ego_state, ego_controls[i])[1:2])
+
+        other_noisy_control = other_control .* (1 .+ randn(2) * 0.05)
+
         # break
         ego_state = step(ego_dyn, ego_state, ego_control)
-        other_state = step(other_dyn, other_state, other_control)
+        other_state = step(other_dyn, other_state, other_noisy_control)
+
 
         ego_traj[i+1] = ego_state
         other_traj[i+1] = other_state
 
         # println(ego_control)
         ego_controls[i+1] = ego_control
-        other_controls[i] = other_control
+        other_controls[i] = other_noisy_control
 
     end
 
@@ -228,7 +244,6 @@ function simulate_hj(ego_hps::PlannerHyperparameters, other_ip::InteractionPlann
     ego_controls = Vector{Vector{Float64}}(undef, sim_horizon)
     other_traj = Vector{Vector{Float64}}(undef, sim_horizon + 1)
     other_controls = Vector{Vector{Float64}}(undef, sim_horizon)
-    ego_desired_controls = Vector{Vector{Float64}}(undef, sim_horizon)
 
     ego_traj[1] = ego_initial_state
     other_traj[1] = other_ip.ego_planner.incon.opt_params.initial_state
@@ -240,6 +255,7 @@ function simulate_hj(ego_hps::PlannerHyperparameters, other_ip::InteractionPlann
 
     # Uses MPC function to simulate to a given time horizon
     for i in 1:(sim_horizon)
+        Random.seed!(seed + i)
 
         ego_state = ego_traj[i]
         other_state = other_traj[i]
@@ -269,14 +285,15 @@ function simulate_hj(ego_hps::PlannerHyperparameters, other_ip::InteractionPlann
 
         other_control = mpc_step(other_ip, other_state, ego_state, ibr_iterations=ibr_iterations, leader=leader)
 
+        other_noisy_control = other_control .* (1 .+ randn(2) * 0.05)
+
         ego_state = step(ego_dyn, ego_state, ego_control)
-        other_state = step(other_dyn, other_state, other_control)
+        other_state = step(other_dyn, other_state, other_noisy_control)
 
         ego_traj[i+1] = ego_state
         other_traj[i+1] = other_state
         ego_controls[i] = ego_control
-        other_controls[i] = other_control
-        ego_desired_controls[i] = ego_desired_control
+        other_controls[i] = other_noisy_control
 
     end
 
