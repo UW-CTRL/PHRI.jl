@@ -198,6 +198,62 @@ function simulation_sweep(ego_hps::PlannerHyperparameters, other_ip::Interaction
     runs_dict
 end
 
+# optimal controller simulation sweep
+function simulation_sweep(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}; ego_ibr_iterations=3::Int64, other_ibr_iterations=3::Int64)
+    runs = maximum([length(ego_boundary_conditions), length(other_boundary_conditions)])
+
+    ego_ego_hps = ego_ip.ego_planner.incon.hps
+    ego_other_hps = ego_ip.other_planner.incon.hps
+    other_ego_hps = other_ip.ego_planner.incon.hps
+    other_other_hps = other_ip.other_planner.incon.hps
+
+    if length(ego_boundary_conditions) == 1 
+        for i in 1:(runs - 1)
+            push!(ego_boundary_conditions, ego_boundary_conditions[1])
+        end
+    elseif length(other_boundary_conditions) == 1
+        for i in 1:(runs - 1)
+            push!(other_boundary_conditions, other_boundary_conditions[1])
+        end
+    end
+
+    if length(ego_boundary_conditions) != length(other_boundary_conditions)
+        throw(ArgumentError("length of 'ego_boundary_conditions' and 'other_boundary_conditions' must match"))
+    end
+
+    runs_dict = Dict{String, SimData}()
+
+    for j in ProgressBar(1:runs)
+        sim_ego_ip = InteractionPlanner(ego_ego_hps, ego_other_hps, ego_boundary_conditions[j][1], other_boundary_conditions[j][1], ego_boundary_conditions[j][2], other_boundary_conditions[j][2], "ECOS")
+        sim_other_ip = InteractionPlanner(other_ego_hps, other_other_hps, other_boundary_conditions[j][1], ego_boundary_conditions[j][1], other_boundary_conditions[j][2], ego_boundary_conditions[j][2], "ECOS")
+
+        ego_params = PlannerParams(sim_ego_ip.ego_planner.incon.hps, sim_ego_ip.ego_planner.incon.opt_params, sim_ego_ip.other_planner.incon.hps, sim_ego_ip.other_planner.incon.opt_params)
+        other_params = PlannerParams(sim_other_ip.ego_planner.incon.hps, sim_other_ip.ego_planner.incon.opt_params, sim_other_ip.other_planner.incon.hps, sim_other_ip.other_planner.incon.opt_params)
+
+        sim_params = IPSimParams(ego_params, other_params)
+
+        ego_states, ego_controls, other_states, other_controls, solve_time = simulate_oc(sim_ego_ip, sim_other_ip, sim_horizon, ego_ibr_iterations=ego_ibr_iterations, other_ibr_iterations=other_ibr_iterations)
+
+        sim_data = SimData(sim_params, solve_time, ego_states, ego_controls, other_states, other_controls)
+
+        runs_dict["Run $(j)"] = sim_data
+
+        # deleting variables
+        sim_ego_ip = nothing
+        sim_other_ip = nothing
+        ego_params = nothing
+        other_params = nothing
+        sim_params = nothing
+        ego_states = nothing
+        ego_controls = nothing
+        other_states = nothing
+        other_controls = nothing
+        sim_data = nothing
+    end
+
+    runs_dict
+end
+
 function run_experiment(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, save_path=""::String)
     start_time = time()
     println("-" ^ 80)
@@ -244,6 +300,27 @@ function run_experiment(ego_hps::PlannerHyperparameters, other_ip::InteractionPl
     println("Running Simulations")
     println("-" ^ 80)
     sweep_data = simulation_sweep(ego_hps, other_ip, sim_horizon, ego_boundary_conditions, other_boundary_conditions)
+    println("-" ^ 80)
+    println("Evaluating Simulations")
+    println("-" ^ 80)
+    metrics = evaluate_sim(sweep_data)
+    end_time = time()
+    if save_path != ""
+        serialize(save_path, metrics)
+    end
+
+    print("Experiment finished in $(end_time - start_time)")
+
+    metrics
+end
+
+# run experiment function for optimal controller w/o ibr
+function run_experiment(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}; ego_ibr_iterations=3::Int64, other_ibr_iterations=3::Int64, save_path=""::String)
+    start_time = time()
+    println("-" ^ 80)
+    println("Running Simulations")
+    println("-" ^ 80)
+    sweep_data = simulation_sweep(ego_ip, other_ip, sim_horizon, ego_boundary_conditions, other_boundary_conditions, ego_ibr_iterations=ego_ibr_iterations, other_ibr_iterations=other_ibr_iterations)
     println("-" ^ 80)
     println("Evaluating Simulations")
     println("-" ^ 80)

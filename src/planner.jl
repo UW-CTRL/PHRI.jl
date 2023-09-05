@@ -830,9 +830,18 @@ function ibr_mpc(ip::InteractionPlanner, iterations::Int64, leader="ego"::String
         # update JuMP model
         # update previous state and controls with latest solution
         leader_agent.incon.opt_params.other_positions = get_position(follower_agent.incon.hps.dynamics, follower_agent.incon.opt_params.previous_states)
-        solve(leader_agent.incon, iterations=1)
+        if iterations == 1  # creates a non ibr optimal control problem
+            solve(leader_agent.incon, iterations=5)
+        else
+            solve(leader_agent.incon, iterations=1)
+        end
+
         follower_agent.incon.opt_params.other_positions = get_position(leader_agent.incon.hps.dynamics, leader_agent.incon.opt_params.previous_states)
-        solve(follower_agent.incon, iterations=1)
+        if iterations == 1  # creates a non ibr optimal control problem
+            solve(follower_agent.incon, iterations=5)
+        else
+            solve(follower_agent.incon, iterations=1)
+        end
     end
 
     # ip, value.(ip.ego_planner.incon.xs), value.(ip.ego_planner.incon.us), value.(ip.ego_planner.incon.us)[1]

@@ -305,3 +305,61 @@ function simulate_hj(ego_hps::PlannerHyperparameters, other_ip::InteractionPlann
 
     ego_traj, ego_controls, other_traj, other_controls
 end
+
+# optimal controller simulation w/o ibr
+function simulate_oc(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_horizon::Int64; ego_ibr_iterations=3::Int64, other_ibr_iterations=3::Int64, leader="ego"::String, seed=010100000111001001101111011000010110001101110100011010010111011001100101010010000101001001001001)
+    # Given the IP problem setup of the ego agent and other agent
+    # initialize matrices for saving the paths
+
+    ego_dyn = ego_ip.ego_planner.incon.hps.dynamics
+    other_dyn = other_ip.ego_planner.incon.hps.dynamics
+
+    ego_traj = Vector{Vector{Float64}}(undef, sim_horizon + 1)
+    ego_controls = Vector{Vector{Float64}}(undef, sim_horizon)
+    other_traj = Vector{Vector{Float64}}(undef, sim_horizon + 1)
+    other_controls = Vector{Vector{Float64}}(undef, sim_horizon)
+
+    ego_traj[1] = ego_ip.ego_planner.incon.opt_params.initial_state
+    other_traj[1] = other_ip.ego_planner.incon.opt_params.initial_state
+
+    ego_solve_times = Vector{Float64}(undef, sim_horizon)
+    other_solve_times = Vector{Float64}(undef, sim_horizon)
+
+    # Uses MPC function to simulate to a given time horizon
+    for i in 1:(sim_horizon)
+        Random.seed!(seed + i)
+
+        ego_state = ego_traj[i]
+        other_state = other_traj[i]
+        # solve for the next iteration
+
+        ego_solve_start = time()
+        ego_control = mpc_step(ego_ip, ego_state, other_state, ibr_iterations=ego_ibr_iterations, leader=leader)
+        ego_solve_end = time()
+        ego_solve_times[i] = ego_solve_end - ego_solve_start
+
+        other_solve_start = time()
+        other_control = mpc_step(other_ip, other_state, ego_state, ibr_iterations=other_ibr_iterations, leader=leader)
+        other_solve_end = time()
+        other_solve_times[i] = other_solve_end - other_solve_start
+
+        other_noisy_control = other_control .* (1 .+ randn(2) * 0.05)
+
+        ego_state = step(ego_dyn, ego_state, ego_control)
+        other_state = step(other_dyn, other_state, other_noisy_control)
+
+        ego_traj[i+1] = ego_state
+        other_traj[i+1] = other_state
+        ego_controls[i] = ego_control
+        other_controls[i] = other_noisy_control
+
+    end
+
+    # cast vector of vectors to matrix for easier plotting
+    ego_traj = vector_of_vectors_to_matrix(ego_traj)
+    ego_controls = vector_of_vectors_to_matrix(ego_controls)
+    other_traj = vector_of_vectors_to_matrix(other_traj)
+    other_controls = vector_of_vectors_to_matrix(other_controls)
+
+    ego_traj, ego_controls, other_traj, other_controls, (ego_solve_times, other_solve_times)
+end
