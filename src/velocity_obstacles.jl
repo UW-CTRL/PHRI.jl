@@ -49,7 +49,7 @@ function minimally_invasive_velocity_obstacles(vo_qp::Model,
                                     others_velocity::Vector{Vector{T}};
                                     verbose=false,
                                     γ=100.,
-                                    tol=1E-2) where {T}
+                                    tol=-1+1E-2) where {T}
     # for all other agents, find the "closest" agent wrt lowest HJ value function
     closest_other = 1
     V_min = 100.
