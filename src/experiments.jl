@@ -81,7 +81,7 @@ function simulation_sweep(ego_ip::InteractionPlanner, other_ip::InteractionPlann
     runs_dict
 end
 
-function simulation_sweep(ego::DynamicallyExtendedUnicycle, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}; p=2., q=2., τ=2., ψ=pi/6, c=0.3)
+function simulation_sweep(ego::DynamicallyExtendedUnicycle, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}; p=2., q=2., τ=2., ψ=pi/6, c=0.3, other_ibr_iterations=3)
     runs = maximum([length(ego_boundary_conditions), length(other_boundary_conditions)])
 
     ego_ego_hps = other_ip.other_planner.incon.hps
@@ -113,7 +113,7 @@ function simulation_sweep(ego::DynamicallyExtendedUnicycle, other_ip::Interactio
 
         sim_params = IPSimParams(ego_params, other_params)
 
-        ego_states, ego_controls, other_states, other_controls = simulate_human_social_forces(ego, sim_other_ip, ego_boundary_conditions[j][1], ego_boundary_conditions[j][2], sim_horizon, p=2., q=2., τ=2., ψ=pi/6, c=0.3)
+        ego_states, ego_controls, other_states, other_controls = simulate_human_social_forces(ego, sim_other_ip, ego_boundary_conditions[j][1], ego_boundary_conditions[j][2], sim_horizon, p=2., q=2., τ=2., ψ=pi/6, c=0.3, ibr_iterations=other_ibr_iterations)
 
         sim_data = SimData(sim_params, ([0.], nothing), ego_states, ego_controls, other_states, other_controls)
 
@@ -135,7 +135,7 @@ function simulation_sweep(ego::DynamicallyExtendedUnicycle, other_ip::Interactio
     runs_dict
 end
 
-function simulation_sweep(ego_hps::PlannerHyperparameters, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}; p=2., q=2., τ=2., ψ=pi/6, c=0.3)
+function simulation_sweep(ego_hps::PlannerHyperparameters, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}; other_ibr_iterations=3)
     runs = maximum([length(ego_boundary_conditions), length(other_boundary_conditions)])
 
     ego_ego_hps = other_ip.other_planner.incon.hps
@@ -176,7 +176,7 @@ function simulation_sweep(ego_hps::PlannerHyperparameters, other_ip::Interaction
 
         sim_params = IPSimParams(ego_params, other_params)
 
-        ego_states, ego_controls, other_states, other_controls = simulate_hj(ego_hps, sim_other_ip, ego_boundary_conditions[j][1], ego_boundary_conditions[j][2], sim_horizon)
+        ego_states, ego_controls, other_states, other_controls = simulate_hj(ego_hps, sim_other_ip, ego_boundary_conditions[j][1], ego_boundary_conditions[j][2], sim_horizon, ibr_iterations=other_ibr_iterations)
 
         sim_data = SimData(sim_params, ([0.], nothing), ego_states, ego_controls, other_states, other_controls)
 
@@ -274,12 +274,12 @@ function run_experiment(ego_ip::InteractionPlanner, other_ip::InteractionPlanner
     metrics
 end
 
-function run_experiment(ego::DynamicallyExtendedUnicycle, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}; p=2., q=2., τ=2., ψ=pi/6, c=0.3, save_path=""::String)
+function run_experiment(ego::DynamicallyExtendedUnicycle, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}; p=2., q=2., τ=2., ψ=pi/6, c=0.3, save_path=""::String, other_ibr_iterations=3)
     start_time = time()
     println("-" ^ 80)
     println("Running Simulations")
     println("-" ^ 80)
-    sweep_data = simulation_sweep(ego, other_ip, sim_horizon, ego_boundary_conditions, other_boundary_conditions, p=2., q=2., τ=2., ψ=pi/6, c=0.3)
+    sweep_data = simulation_sweep(ego, other_ip, sim_horizon, ego_boundary_conditions, other_boundary_conditions, p=2., q=2., τ=2., ψ=pi/6, c=0.3, other_ibr_iterations=other_ibr_iterations)
     println("-" ^ 80)
     println("Evaluating Simulations")
     println("-" ^ 80)
@@ -294,12 +294,12 @@ function run_experiment(ego::DynamicallyExtendedUnicycle, other_ip::InteractionP
     metrics
 end
 
-function run_experiment(ego_hps::PlannerHyperparameters, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}};save_path=""::String)
+function run_experiment(ego_hps::PlannerHyperparameters, other_ip::InteractionPlanner, sim_horizon, ego_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}}, other_boundary_conditions::Vector{Tuple{Vector{Float64}, Vector{Float64}}};save_path=""::String, other_ibr_iterations=3)
     start_time = time()
     println("-" ^ 80)
     println("Running Simulations")
     println("-" ^ 80)
-    sweep_data = simulation_sweep(ego_hps, other_ip, sim_horizon, ego_boundary_conditions, other_boundary_conditions)
+    sweep_data = simulation_sweep(ego_hps, other_ip, sim_horizon, ego_boundary_conditions, other_boundary_conditions, other_ibr_iterations=other_ibr_iterations)
     println("-" ^ 80)
     println("Evaluating Simulations")
     println("-" ^ 80)
