@@ -287,7 +287,7 @@ function IdealProblem(dyn::UnicycleDynamics, hps::PlannerHyperparameters, opt_pa
     @objective(model, Min, compute_running_quadratic_cost(xs[1:N], hps.Q, markup=hps.markup) + compute_running_quadratic_cost(us[1:N], hps.R, markup=hps.markup) + compute_quadratic_error_cost(xs[end], opt_params.goal_state, hps.Qt) + hps.trust_region_weight * (compute_running_quadratic_cost(xs - opt_params.previous_states, Matrix{Float64}(I, n, n)) + compute_running_quadratic_cost(us - opt_params.previous_controls, Matrix{Float64}(I, m, m))))
 
     # initial state constraint
-    model[:initial_state] = @constraint(model, xs[1] == opt_params.initial_state, base_name="initial_state")
+    model[:initial_state] = @constraint(model, xs[1] .== opt_params.initial_state, base_name="initial_state")
 
     # dynamic constraints
     for t in 1:N
