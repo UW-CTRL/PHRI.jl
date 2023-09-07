@@ -467,7 +467,7 @@ function plot_solve_solution(problem::SaveData; walls::Union{Vector{Wall}, Nothi
 end
 
 # plotting from the SimData object
-function plot_solve_solution(problem::SimData; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1,11], pos_ylims=[-6, 6])
+function plot_solve_solution(problem::SimData; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1,11], pos_ylims=[-6, 6], ego_color=:deepskyblue::Symbol, other_color=:firebrick1::Symbol)
 
     l = @layout [a b c] 
     width=1500
@@ -477,8 +477,6 @@ function plot_solve_solution(problem::SimData; walls::Union{Vector{Wall}, Nothin
     linewidth = 2
     markersize = 2
     markersize_large = 7
-    ego_color = :blue
-    other_color = :red
 
     ego_xs = problem.ego_states
     ego_us = problem.ego_controls
@@ -541,7 +539,7 @@ function plot_solve_solution(problem::SimData; walls::Union{Vector{Wall}, Nothin
     plot(plot_traj, plot_ctrl, plot_speed, layout = l)
 end
 
-function plot_solve_solution(problem::SimData, constant_velo_agents::ConstantVeloAgent...; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1,11], pos_ylims=[-6, 6])
+function plot_solve_solution(problem::SimData, constant_velo_agents::ConstantVeloAgent...; walls::Union{Vector{Wall}, Nothing}=nothing, pos_xlims=[-1,11], pos_ylims=[-6, 6], ego_color=:deepskyblue::Symbol, other_color=:firebrick1::Symbol)
 
     l = @layout [a b c] 
     width=1500
@@ -551,8 +549,6 @@ function plot_solve_solution(problem::SimData, constant_velo_agents::ConstantVel
     linewidth = 2
     markersize = 2
     markersize_large = 7
-    ego_color = :blue
-    other_color = :red
 
     ego_xs = problem.ego_states
     ego_us = problem.ego_controls
