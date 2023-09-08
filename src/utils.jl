@@ -10,6 +10,10 @@ struct PlannerParams
     counterpart_opt_params::PlannerOptimizerParams
 end
 
+function PlannerParams(hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams, counterpart_hps::PlannerHyperparameters, counterpart_opt_params::PlannerOptimizerParams)
+    PlannerParams(hps, opt_params, counterpart_hps, counterpart_opt_params)
+end
+
 struct HITLParams
     ego_planner_params::PlannerParams
     other_goal_state::Vector{Float64}
