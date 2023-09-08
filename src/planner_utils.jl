@@ -25,7 +25,7 @@ function compute_total_difference_squared(time_series::Vector{T}) where {T}
     compute_running_quadratic_cost(dx, Q)
 end    
 
-function compute_convenience_value(dynamics::UnicycleDynamics, states::Vector{V}, controls::Vector{V}, goal::Vector{T}, inconvenience_weights::VecOrMat{T}) where {T,V}
+function compute_convenience_value(dynamics::Union{UnicycleDynamics, SingleIntegratorPolar2D}, states::Vector{V}, controls::Vector{V}, goal::Vector{T}, inconvenience_weights::VecOrMat{T}) where {T,V}
     position = get_position(dynamics, states)
     speed = get_speed(dynamics, states[1:end-1], controls)
     n = dynamics.state_dim

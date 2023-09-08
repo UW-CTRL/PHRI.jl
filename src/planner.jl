@@ -165,7 +165,7 @@ mutable struct IdealProblem <: Problem
 end
 
 # setup inconvenience problem
-function InconvenienceProblem(dyn::UnicycleDynamics, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
+function InconvenienceProblem(dyn::Union{UnicycleDynamics, SingleIntegratorPolar2D}, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
     n = dyn.state_dim
     m = dyn.ctrl_dim
     N = hps.time_horizon
@@ -265,7 +265,7 @@ function InconvenienceProblem(dyn::IntegratorDynamics, hps::PlannerHyperparamete
 end
 
 # setup ideal problem
-function IdealProblem(dyn::UnicycleDynamics, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
+function IdealProblem(dyn::Union{UnicycleDynamics, SingleIntegratorPolar2D}, hps::PlannerHyperparameters, opt_params::PlannerOptimizerParams)
     n = dyn.state_dim
     m = dyn.ctrl_dim
     N = hps.time_horizon
