@@ -77,6 +77,9 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
     ego_traj[1] = ego_ip.ego_planner.incon.opt_params.initial_state
     other_traj[1] = other_ip.ego_planner.incon.opt_params.initial_state
 
+    ego_solve_times = Vector{Float64}(undef, sim_horizon)
+    other_solve_times = Vector{Float64}(undef, sim_horizon)
+
     N_velo_agents = length(constant_velo_agents)
     copied_constant_velo_agents = deepcopy(constant_velo_agents)
 
@@ -88,8 +91,15 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
         other_state = other_traj[i]
         # solve for the next iteration
 
+        ego_solve_start = time()
         ego_control = mpc_step(ego_ip, ego_state, other_state, velo_agents, ibr_iterations=ibr_iterations, leader=leader)
+        ego_solve_end = time()
+        ego_solve_times[i] = ego_solve_end - ego_solve_start
+
+        other_solve_start = time()
         other_control = mpc_step(other_ip, other_state, ego_state, velo_agents, ibr_iterations=ibr_iterations, leader=leader)
+        other_solve_end = time()
+        other_solve_times[i] = other_solve_end - other_solve_start
 
         other_noisy_control = other_control .* (1 .+ randn(2) * 0.05)
 
@@ -112,7 +122,7 @@ function simulate(ego_ip::InteractionPlanner, other_ip::InteractionPlanner, sim_
     other_traj = vector_of_vectors_to_matrix(other_traj)
     other_controls = vector_of_vectors_to_matrix(other_controls)
 
-    ego_traj, ego_controls, other_traj, other_controls
+    ego_traj, ego_controls, other_traj, other_controls, (ego_solve_times, other_solve_times)
 end
 
 
