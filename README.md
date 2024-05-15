@@ -3,17 +3,17 @@
 ![](https://github.com/UW-CTRL/ProactiveHRI.jl/blob/ibr_dev/animations/avoidance.gif)
 
 # Installing as a Julia Package
-To install ProactiveHRI.jl as a Julia package:
+To install PHRI.jl as a Julia package:
 -  Go into the Julia REPL
 -  Press ```]``` to enter package manager
--  Use the command ```add path/to/ProactiveHRI/repo/ProactiveHRI.jl```
+-  Use the command ```add path/to/PHRI/repo/PHRI.jl```
 
 # Using ProactiveHRI.jl
 This is an example of how to use the ProactiveHRI.jl package to set up a planning problem between two agents (human and robot).
 
 Import ProactiveHRI Package
 ```jl
-using ProactiveHRI
+using PHRI
 ```
 
 Define constants and parameters
